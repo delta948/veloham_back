@@ -1,0 +1,5 @@
+.cache
+api
+uploads/*
+!uploads/.gitkeep
+.env

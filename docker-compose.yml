@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: veloham
+      POSTGRES_USER: veloham
+      POSTGRES_PASSWORD: veloham
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    environment:
+      APP_ENV: docker
+      PORT: 8080
+      DATABASE_URL: postgres://veloham:veloham@postgres:5432/veloham?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: change-me-in-production
+      CORS_ORIGIN: http://127.0.0.1:5173,http://localhost:5173
+      UPLOAD_DIR: uploads
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://127.0.0.1:8080/api
+      VITE_WS_URL: ws://127.0.0.1:8080/ws
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:

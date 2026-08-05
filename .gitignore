@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.cache/
+*.tsbuildinfo
+backend/api
+backend/uploads/*
+!backend/uploads/.gitkeep
+.env
