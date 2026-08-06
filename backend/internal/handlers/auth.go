@@ -26,6 +26,11 @@ type authRequest struct {
 	Password string `json:"password" binding:"required,min=12,max=72"`
 }
 
+type loginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,max=72"`
+}
+
 func (h AuthHandler) Register(c *gin.Context) {
 	var req authRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -46,7 +51,7 @@ func (h AuthHandler) Register(c *gin.Context) {
 }
 
 func (h AuthHandler) Login(c *gin.Context) {
-	var req authRequest
+	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
