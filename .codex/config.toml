@@ -1,0 +1,8 @@
+# Project-local automation defaults.
+# Keep the workspace sandbox enabled while allowing trusted, repeatable checks
+# to run without an interactive approval prompt.
+sandbox_mode = "workspace-write"
+approval_policy = "never"
+
+[sandbox_workspace_write]
+network_access = true
