@@ -4,6 +4,8 @@
 
 VELOHAM is a two-service marketplace for bikes, fixed gear, road, MTB, BMX, parts and accessories.
 
+Security policy and the latest audit status: [SECURITY.md](SECURITY.md)
+
 ## Services
 
 - `backend`: Go + Gin + PostgreSQL + JWT + WebSocket + uploads
@@ -45,3 +47,10 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## Production security
+
+- Set `APP_ENV=production` and provide a unique `JWT_SECRET` with at least 32 characters.
+- Set explicit HTTPS origins in `CORS_ORIGIN`; wildcards are rejected in production.
+- To provision an administrator, set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`. The password must contain at least 12 characters.
+- Do not commit `.env` files or production credentials.

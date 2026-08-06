@@ -1,28 +1,54 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	RedisURL    string
-	JWTSecret   string
-	CORSOrigin  string
-	UploadDir   string
+	Environment   string
+	Port          string
+	DatabaseURL   string
+	RedisURL      string
+	JWTSecret     string
+	CORSOrigin    string
+	UploadDir     string
+	AdminEmail    string
+	AdminPassword string
 }
 
 func Load() Config {
 	return Config{
-		Port:        value("APP_PORT", value("PORT", "8080")),
-		DatabaseURL: databaseURL(),
-		RedisURL:    value("REDIS_URL", "redis://127.0.0.1:6379/0"),
-		JWTSecret:   value("JWT_SECRET", "dev-secret"),
-		CORSOrigin:  value("CORS_ORIGIN", "http://127.0.0.1:5173,http://localhost:5173"),
-		UploadDir:   value("UPLOAD_DIR", "uploads"),
+		Environment:   value("APP_ENV", "development"),
+		Port:          value("APP_PORT", value("PORT", "8080")),
+		DatabaseURL:   databaseURL(),
+		RedisURL:      value("REDIS_URL", "redis://127.0.0.1:6379/0"),
+		JWTSecret:     value("JWT_SECRET", "dev-secret"),
+		CORSOrigin:    value("CORS_ORIGIN", "http://127.0.0.1:5173,http://localhost:5173"),
+		UploadDir:     value("UPLOAD_DIR", "uploads"),
+		AdminEmail:    strings.TrimSpace(strings.ToLower(os.Getenv("ADMIN_EMAIL"))),
+		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 	}
+}
+
+func (c Config) Validate() error {
+	if strings.EqualFold(c.Environment, "production") {
+		if len(c.JWTSecret) < 32 || c.JWTSecret == "dev-secret" || c.JWTSecret == "change-me-in-production" {
+			return errors.New("JWT_SECRET must contain at least 32 characters in production")
+		}
+		if strings.Contains(c.CORSOrigin, "*") {
+			return errors.New("CORS_ORIGIN must list explicit origins in production")
+		}
+	}
+	if (c.AdminEmail == "") != (c.AdminPassword == "") {
+		return errors.New("ADMIN_EMAIL and ADMIN_PASSWORD must be set together")
+	}
+	if c.AdminPassword != "" && len(c.AdminPassword) < 12 {
+		return errors.New("ADMIN_PASSWORD must contain at least 12 characters")
+	}
+	return nil
 }
 
 func value(key, fallback string) string {

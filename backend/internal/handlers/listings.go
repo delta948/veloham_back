@@ -1,10 +1,15 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,6 +25,15 @@ type ListingHandler struct {
 	db        *gorm.DB
 	uploadDir string
 }
+
+const (
+	maxImageBytes         = 5 << 20
+	maxImagesPerRequest   = 8
+	maxImagesPerListing   = 12
+	maxUploadRequestBytes = 42 << 20
+)
+
+var errImageTooLarge = errors.New("image exceeds the 5 MB limit")
 
 func NewListingHandler(db *gorm.DB, uploadDir string) ListingHandler {
 	return ListingHandler{db: db, uploadDir: uploadDir}
@@ -143,6 +157,12 @@ func (h ListingHandler) hydratePriceSummary(listing *models.Listing) {
 }
 
 func (h ListingHandler) Create(c *gin.Context) {
+	limitUploadBody(c)
+	files, err := validateImageUploads(c)
+	if err != nil {
+		writeUploadError(c, err)
+		return
+	}
 	listing, ok := h.bindListing(c)
 	if !ok {
 		return
@@ -165,7 +185,10 @@ func (h ListingHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.saveImages(c, listing.ID)
+	if err := h.saveImages(files, listing.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save images"})
+		return
+	}
 	h.saveBuildCard(c, listing.ID)
 	h.saveMatchPreference(c, listing.ID)
 	h.db.Preload("Images").Preload("User").Preload("BuildCard").Preload("MatchPref").First(&listing, "id = ?", listing.ID)
@@ -174,6 +197,7 @@ func (h ListingHandler) Create(c *gin.Context) {
 }
 
 func (h ListingHandler) Update(c *gin.Context) {
+	limitUploadBody(c)
 	var listing models.Listing
 	if err := h.db.First(&listing, "id = ?", c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "listing not found"})
@@ -183,6 +207,15 @@ func (h ListingHandler) Update(c *gin.Context) {
 	isAdmin := actorIsAdmin(h.db, actorID)
 	if listing.UserID != actorID && !isAdmin {
 		c.JSON(http.StatusForbidden, gin.H{"error": services.ErrListingForbidden.Error()})
+		return
+	}
+	files, err := validateImageUploads(c)
+	if err != nil {
+		writeUploadError(c, err)
+		return
+	}
+	if err := h.ensureImageCapacity(listing.ID, len(files)); err != nil {
+		writeUploadError(c, err)
 		return
 	}
 	patch, ok := h.bindListing(c)
@@ -217,7 +250,10 @@ func (h ListingHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	h.saveImages(c, listing.ID)
+	if err := h.saveImages(files, listing.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save images"})
+		return
+	}
 	h.saveBuildCard(c, listing.ID)
 	h.saveMatchPreference(c, listing.ID)
 	h.db.Preload("Images").Preload("User").Preload("BuildCard").Preload("MatchPref").First(&listing, "id = ?", listing.ID)
@@ -292,16 +328,29 @@ func (h ListingHandler) Bump(c *gin.Context) {
 }
 
 func (h ListingHandler) AddImages(c *gin.Context) {
+	limitUploadBody(c)
 	var listing models.Listing
 	if err := h.db.First(&listing, "id = ?", c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "listing not found"})
+		return
+	}
+	files, err := validateImageUploads(c)
+	if err != nil {
+		writeUploadError(c, err)
+		return
+	}
+	if err := h.ensureImageCapacity(listing.ID, len(files)); err != nil {
+		writeUploadError(c, err)
 		return
 	}
 	if listing.UserID != middleware.CurrentUserID(c) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can upload images"})
 		return
 	}
-	h.saveImages(c, listing.ID)
+	if err := h.saveImages(files, listing.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save images"})
+		return
+	}
 	h.db.Preload("Images").First(&listing, "id = ?", listing.ID)
 	c.JSON(http.StatusOK, listing.Images)
 }
@@ -319,6 +368,9 @@ func (h ListingHandler) DeleteImage(c *gin.Context) {
 		return
 	}
 	h.db.Delete(&image)
+	if name := filepath.Base(image.ImageURL); name != "." && name != "/" {
+		_ = os.Remove(filepath.Join(h.uploadDir, name))
+	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -421,19 +473,122 @@ func (h ListingHandler) bindListing(c *gin.Context) (models.Listing, bool) {
 	return listing, true
 }
 
-func (h ListingHandler) saveImages(c *gin.Context, listingID string) {
-	form, err := c.MultipartForm()
-	if err != nil || form.File["images"] == nil {
-		return
-	}
-	files := form.File["images"]
+func (h ListingHandler) saveImages(files []*multipart.FileHeader, listingID string) error {
 	for i, file := range files {
-		name := fmt.Sprintf("%s-%d-%s", listingID, i, filepath.Base(file.Filename))
+		ext, err := imageExtension(file)
+		if err != nil {
+			return err
+		}
+		suffix, err := randomHex(12)
+		if err != nil {
+			return err
+		}
+		name := fmt.Sprintf("%s-%s%s", listingID, suffix, ext)
 		path := filepath.Join(h.uploadDir, name)
-		if c.SaveUploadedFile(file, path) == nil {
-			h.db.Create(&models.ListingImage{ListingID: listingID, ImageURL: "/uploads/" + name, SortOrder: i})
+		if err := saveUploadedFile(file, path); err != nil {
+			return err
+		}
+		if err := h.db.Create(&models.ListingImage{ListingID: listingID, ImageURL: "/uploads/" + name, SortOrder: i}).Error; err != nil {
+			_ = os.Remove(path)
+			return err
 		}
 	}
+	return nil
+}
+
+func (h ListingHandler) ensureImageCapacity(listingID string, additional int) error {
+	if additional == 0 {
+		return nil
+	}
+	var count int64
+	if err := h.db.Model(&models.ListingImage{}).Where("listing_id = ?", listingID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count+int64(additional) > maxImagesPerListing {
+		return fmt.Errorf("a listing may contain at most %d images", maxImagesPerListing)
+	}
+	return nil
+}
+
+func limitUploadBody(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadRequestBytes)
+}
+
+func validateImageUploads(c *gin.Context) ([]*multipart.FileHeader, error) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return nil, fmt.Errorf("invalid multipart request: %w", err)
+	}
+	files := form.File["images"]
+	if len(files) > maxImagesPerRequest {
+		return nil, fmt.Errorf("a maximum of %d images is allowed", maxImagesPerRequest)
+	}
+	for _, file := range files {
+		if file.Size > maxImageBytes {
+			return nil, errImageTooLarge
+		}
+		if _, err := imageExtension(file); err != nil {
+			return nil, err
+		}
+	}
+	return files, nil
+}
+
+func imageExtension(file *multipart.FileHeader) (string, error) {
+	source, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer source.Close()
+	buffer := make([]byte, 512)
+	n, err := source.Read(buffer)
+	if err != nil && n == 0 {
+		return "", errors.New("empty image file")
+	}
+	switch http.DetectContentType(buffer[:n]) {
+	case "image/jpeg":
+		return ".jpg", nil
+	case "image/png":
+		return ".png", nil
+	case "image/webp":
+		return ".webp", nil
+	default:
+		return "", errors.New("only JPEG, PNG, and WebP images are allowed")
+	}
+}
+
+func saveUploadedFile(file *multipart.FileHeader, destination string) error {
+	source, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+	target, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		return err
+	}
+	defer target.Close()
+	_, err = io.Copy(target, source)
+	if err != nil {
+		_ = os.Remove(destination)
+	}
+	return err
+}
+
+func randomHex(bytes int) (string, error) {
+	buffer := make([]byte, bytes)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buffer), nil
+}
+
+func writeUploadError(c *gin.Context, err error) {
+	status := http.StatusBadRequest
+	if errors.Is(err, errImageTooLarge) || strings.Contains(err.Error(), "request body too large") {
+		status = http.StatusRequestEntityTooLarge
+	}
+	c.JSON(status, gin.H{"error": err.Error()})
 }
 
 func (h ListingHandler) saveBuildCard(c *gin.Context, listingID string) {

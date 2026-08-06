@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"veloham/backend/internal/config"
 	"veloham/backend/internal/database"
@@ -12,6 +13,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
 	db := database.Connect(cfg.DatabaseURL)
 	if err := db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`).Error; err != nil {
 		log.Fatalf("enable uuid-ossp extension: %v", err)
@@ -20,7 +24,10 @@ func main() {
 		log.Fatalf("migrate database: %v", err)
 	}
 	db.Model(&models.User{}).Where("role = '' OR role IS NULL").Update("role", "user")
-	if err := bootstrapAdmin(db); err != nil {
+	if err := revokeLegacyAdmin(db); err != nil {
+		log.Fatalf("revoke legacy admin: %v", err)
+	}
+	if err := bootstrapAdmin(db, cfg); err != nil {
 		log.Fatalf("bootstrap admin: %v", err)
 	}
 	db.Model(&models.Listing{}).Where("deal_type = '' OR deal_type IS NULL").Update("deal_type", "продажа")
@@ -63,11 +70,24 @@ func main() {
 	}
 }
 
-func bootstrapAdmin(db *gorm.DB) error {
+func revokeLegacyAdmin(db *gorm.DB) error {
+	return db.Model(&models.User{}).
+		Where("email = ?", "admin@veloham.kg").
+		Updates(map[string]any{"role": "user", "is_blocked": true, "password_hash": "disabled-known-credential"}).Error
+}
+
+func bootstrapAdmin(db *gorm.DB, cfg config.Config) error {
+	if cfg.AdminEmail == "" {
+		return nil
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(cfg.AdminPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
 	admin := models.User{
 		Username:     "VELOHAM Admin",
-		Email:        "admin@veloham.kg",
-		PasswordHash: "$2a$10$tTDNbpvKzMbC93DyXFGCkOmkUq0QJ0taGw70IxebA0Ukc/.oR2Oja",
+		Email:        cfg.AdminEmail,
+		PasswordHash: string(hash),
 		City:         "Бишкек",
 		Contact:      "@veloham_admin",
 		Role:         "admin",
@@ -75,7 +95,7 @@ func bootstrapAdmin(db *gorm.DB) error {
 	}
 
 	var existing models.User
-	err := db.Where("email = ?", admin.Email).First(&existing).Error
+	err = db.Where("email = ?", admin.Email).First(&existing).Error
 	if err == nil {
 		return db.Model(&existing).Updates(map[string]any{
 			"username":      admin.Username,

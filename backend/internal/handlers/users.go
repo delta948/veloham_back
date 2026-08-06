@@ -24,7 +24,7 @@ func (h UserHandler) Profile(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, models.UserWithEmail(user))
 }
 
 func (h UserHandler) Get(c *gin.Context) {
@@ -52,7 +52,15 @@ func (h UserHandler) UpdateMe(c *gin.Context) {
 		"username": req.Username, "city": req.City, "contact": req.Contact, "avatar_url": req.AvatarURL,
 	}
 	if req.Password != "" {
-		hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if len(req.Password) < 12 || len(req.Password) > 72 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "password must contain 12 to 72 characters"})
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update password"})
+			return
+		}
 		updates["password_hash"] = string(hash)
 	}
 	var user models.User
@@ -62,7 +70,7 @@ func (h UserHandler) UpdateMe(c *gin.Context) {
 	}
 	h.db.Model(&user).Updates(updates)
 	h.db.First(&user, "id = ?", user.ID)
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, models.UserWithEmail(user))
 }
 
 func (h UserHandler) Listings(c *gin.Context) {

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"veloham/backend/internal/common/response"
 	"veloham/backend/internal/middleware"
+	"veloham/backend/internal/models"
 )
 
 type Handler struct {
@@ -59,7 +60,7 @@ func (h *Handler) Me(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, ErrUserNotFound.Error())
 		return
 	}
-	response.OK(c, user)
+	response.OK(c, models.UserWithEmail(user))
 }
 
 func (h *Handler) ForgotPassword(c *gin.Context) {

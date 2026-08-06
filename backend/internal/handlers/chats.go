@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -16,17 +17,33 @@ type ChatHandler struct {
 	hub      *services.ChatHub
 	jwt      services.JWTService
 	upgrader websocket.Upgrader
+	origins  map[string]struct{}
 }
 
-func NewChatHandler(db *gorm.DB, hub *services.ChatHub, jwt services.JWTService) ChatHandler {
-	return ChatHandler{
-		db:  db,
-		hub: hub,
-		jwt: jwt,
-		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
-		},
+func NewChatHandler(db *gorm.DB, hub *services.ChatHub, jwt services.JWTService, allowedOrigins string) ChatHandler {
+	originList := strings.Split(allowedOrigins, ",")
+	handler := ChatHandler{
+		db:      db,
+		hub:     hub,
+		jwt:     jwt,
+		origins: make(map[string]struct{}, len(originList)),
 	}
+	for _, origin := range originList {
+		if origin = strings.TrimSpace(origin); origin != "" {
+			handler.origins[origin] = struct{}{}
+		}
+	}
+	handler.upgrader = websocket.Upgrader{CheckOrigin: handler.checkOrigin}
+	return handler
+}
+
+func (h ChatHandler) checkOrigin(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+	_, allowed := h.origins[origin]
+	return allowed
 }
 
 type createChatRequest struct {
@@ -103,13 +120,18 @@ type incomingMessage struct {
 }
 
 func (h ChatHandler) WebSocket(c *gin.Context) {
-	userID, err := h.jwt.Parse(c.Query("token"))
+	token := websocketToken(c.Request)
+	userID, err := h.jwt.Parse(token)
 	chatID := c.Param("id")
 	if err != nil || !h.canAccessChat(chatID, userID) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "chat access denied"})
 		return
 	}
-	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
+	responseHeaders := http.Header{}
+	if len(websocket.Subprotocols(c.Request)) > 0 {
+		responseHeaders.Set("Sec-WebSocket-Protocol", "access_token")
+	}
+	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, responseHeaders)
 	if err != nil {
 		return
 	}
@@ -131,6 +153,17 @@ func (h ChatHandler) WebSocket(c *gin.Context) {
 		h.db.Preload("Sender").First(&msg, "id = ?", msg.ID)
 		h.hub.Broadcast(chatID, msg)
 	}
+}
+
+func websocketToken(r *http.Request) string {
+	protocols := websocket.Subprotocols(r)
+	if len(protocols) == 2 && protocols[0] == "access_token" {
+		return protocols[1]
+	}
+	if header := r.Header.Get("Authorization"); strings.HasPrefix(header, "Bearer ") {
+		return strings.TrimPrefix(header, "Bearer ")
+	}
+	return ""
 }
 
 func (h ChatHandler) canAccessChat(chatID, userID string) bool {

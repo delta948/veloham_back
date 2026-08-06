@@ -55,7 +55,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (AuthRespon
 	if err != nil {
 		return AuthResponse{}, err
 	}
-	return AuthResponse{Token: token, User: user}, nil
+	return AuthResponse{Token: token, User: models.UserWithEmail(user)}, nil
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (AuthResponse, error) {
@@ -75,7 +75,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (AuthResponse, er
 	if err != nil {
 		return AuthResponse{}, err
 	}
-	return AuthResponse{Token: token, User: user}, nil
+	return AuthResponse{Token: token, User: models.UserWithEmail(user)}, nil
 }
 
 func (s *Service) CurrentUser(ctx context.Context, userID string) (models.User, error) {

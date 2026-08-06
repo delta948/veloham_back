@@ -10,7 +10,7 @@ type Repository interface{}
 type Service interface{}
 
 func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
-	h := handlers.NewChatHandler(deps.DB, deps.ChatHub, deps.JWT)
+	h := handlers.NewChatHandler(deps.DB, deps.ChatHub, deps.JWT, deps.Config.CORSOrigin)
 	chats := rg.Group("/chats", deps.AuthMW)
 	chats.GET("", h.List)
 	chats.GET("/:id", h.Get)

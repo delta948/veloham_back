@@ -18,7 +18,7 @@ export function ChatPage() {
   useEffect(() => {
     if (!id || !user?.id || !token) return;
     api.get<Message[]>(`/chats/${id}/messages`).then(({ data }) => setMessages(data));
-    socket.current = new WebSocket(`${WS_BASE}/chats/${id}?token=${encodeURIComponent(token)}`);
+    socket.current = new WebSocket(`${WS_BASE}/chats/${id}`, ['access_token', token]);
     socket.current.onmessage = (event) => setMessages((prev) => [...prev, JSON.parse(event.data)]);
     return () => socket.current?.close();
   }, [id, user?.id, token]);

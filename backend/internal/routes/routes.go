@@ -3,6 +3,7 @@ package routes
 import (
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -36,12 +37,14 @@ func Setup(db *gorm.DB, cfg config.Config) *gin.Engine {
 	_ = os.MkdirAll(cfg.UploadDir, 0755)
 
 	r := gin.Default()
+	_ = r.SetTrustedProxies(nil)
+	r.MaxMultipartMemory = 40 << 20
 	origins := strings.Split(cfg.CORSOrigin, ",")
 	for i := range origins {
 		origins[i] = strings.TrimSpace(origins[i])
 	}
 
-	r.Use(cors.New(cors.Config{
+	r.Use(middleware.SecurityHeaders(), cors.New(cors.Config{
 		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
@@ -61,15 +64,16 @@ func Setup(db *gorm.DB, cfg config.Config) *gin.Engine {
 	listingHandler := handlers.NewListingHandler(db, cfg.UploadDir)
 	priceHistoryHandler := handlers.NewPriceHistoryHandler(db)
 	favoriteHandler := handlers.NewFavoriteHandler(db)
-	chatHandler := handlers.NewChatHandler(db, hub, jwtService)
+	chatHandler := handlers.NewChatHandler(db, hub, jwtService, cfg.CORSOrigin)
 	userHandler := handlers.NewUserHandler(db)
 	reviewHandler := handlers.NewReviewHandler(db)
 	adminHandler := handlers.NewReportAdminHandler(db)
 	wantedHandler := handlers.NewWantedHandler(db)
-	authMW := middleware.Auth(jwtService)
+	authMW := middleware.Auth(jwtService, db)
+	authRateMW := middleware.NewIPRateLimiter(10, time.Minute)
 	adminMW := middleware.Admin(db)
 	deps := common.Dependencies{
-		DB: db, Config: cfg, JWT: jwtService, ChatHub: hub, AuthMW: authMW, AdminMW: adminMW,
+		DB: db, Config: cfg, JWT: jwtService, ChatHub: hub, AuthMW: authMW, AuthRateMW: authRateMW, AdminMW: adminMW,
 	}
 
 	v1 := r.Group("/api/v1")
@@ -91,8 +95,8 @@ func Setup(db *gorm.DB, cfg config.Config) *gin.Engine {
 	uploads.RegisterRoutes(v1, deps)
 
 	api := r.Group("/api")
-	api.POST("/auth/register", authHandler.Register)
-	api.POST("/auth/login", authHandler.Login)
+	api.POST("/auth/register", authRateMW, authHandler.Register)
+	api.POST("/auth/login", authRateMW, authHandler.Login)
 	api.GET("/auth/me", authMW, authHandler.Me)
 
 	api.GET("/users/:id", userHandler.Get)

@@ -27,7 +27,7 @@ func (s JWTService) Generate(userID string) (string, error) {
 func (s JWTService) Parse(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return s.secret, nil
-	})
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired(), jwt.WithIssuedAt())
 	if err != nil || !token.Valid {
 		return "", err
 	}

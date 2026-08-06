@@ -10,7 +10,7 @@ import (
 	"veloham/backend/internal/services"
 )
 
-func Auth(jwtService services.JWTService) gin.HandlerFunc {
+func Auth(jwtService services.JWTService, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
@@ -20,6 +20,11 @@ func Auth(jwtService services.JWTService) gin.HandlerFunc {
 		userID, err := jwtService.Parse(strings.TrimPrefix(header, "Bearer "))
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
+		var user models.User
+		if err := db.Select("id", "is_blocked").First(&user, "id = ?", userID).Error; err != nil || user.IsBlocked {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user is unavailable"})
 			return
 		}
 		c.Set("userID", userID)

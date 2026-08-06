@@ -47,7 +47,11 @@ func (h ReportAdminHandler) Users(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, users)
+	privateUsers := make([]models.PrivateUser, 0, len(users))
+	for _, user := range users {
+		privateUsers = append(privateUsers, models.UserWithEmail(user))
+	}
+	c.JSON(http.StatusOK, privateUsers)
 }
 
 func (h ReportAdminHandler) BlockUser(c *gin.Context) {

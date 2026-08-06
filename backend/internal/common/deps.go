@@ -8,10 +8,11 @@ import (
 )
 
 type Dependencies struct {
-	DB      *gorm.DB
-	Config  config.Config
-	JWT     services.JWTService
-	ChatHub *services.ChatHub
-	AuthMW  gin.HandlerFunc
-	AdminMW gin.HandlerFunc
+	DB         *gorm.DB
+	Config     config.Config
+	JWT        services.JWTService
+	ChatHub    *services.ChatHub
+	AuthMW     gin.HandlerFunc
+	AuthRateMW gin.HandlerFunc
+	AdminMW    gin.HandlerFunc
 }

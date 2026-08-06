@@ -41,7 +41,7 @@ export function ProfilePage() {
         <input className="field" placeholder="Город" value={profile.city} onChange={(e) => setProfile({ ...profile, city: e.target.value })} />
         <input className="field" placeholder="Телефон или Telegram" value={profile.contact} onChange={(e) => setProfile({ ...profile, contact: e.target.value })} />
         <input className="field" placeholder="URL аватара" value={profile.avatar_url} onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })} />
-        <input className="field" type="password" placeholder="Новый пароль" value={profile.password} onChange={(e) => setProfile({ ...profile, password: e.target.value })} />
+        <input className="field" type="password" minLength={12} maxLength={72} placeholder="Новый пароль (минимум 12 символов)" value={profile.password} onChange={(e) => setProfile({ ...profile, password: e.target.value })} />
         <button className="btn md:col-span-5">Сохранить профиль</button>
       </form>
       <section className="space-y-5">

@@ -5,7 +5,7 @@ import "time"
 type User struct {
 	ID           string    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
 	Username     string    `json:"username"`
-	Email        string    `gorm:"uniqueIndex" json:"email"`
+	Email        string    `gorm:"uniqueIndex" json:"-"`
 	PasswordHash string    `json:"-"`
 	AvatarURL    string    `json:"avatar_url"`
 	City         string    `json:"city"`
@@ -14,6 +14,15 @@ type User struct {
 	IsBlocked    bool      `json:"is_blocked"`
 	Rating       float64   `json:"rating"`
 	CreatedAt    time.Time `json:"created_at"`
+}
+
+type PrivateUser struct {
+	User
+	Email string `json:"email"`
+}
+
+func UserWithEmail(user User) PrivateUser {
+	return PrivateUser{User: user, Email: user.Email}
 }
 
 type Listing struct {

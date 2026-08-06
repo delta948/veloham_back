@@ -23,7 +23,7 @@ func NewAuthHandler(db *gorm.DB, jwt services.JWTService) AuthHandler {
 type authRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
+	Password string `json:"password" binding:"required,min=12,max=72"`
 }
 
 func (h AuthHandler) Register(c *gin.Context) {
@@ -42,7 +42,7 @@ func (h AuthHandler) Register(c *gin.Context) {
 		return
 	}
 	token, _ := h.jwt.Generate(user.ID)
-	c.JSON(http.StatusCreated, gin.H{"token": token, "user": user})
+	c.JSON(http.StatusCreated, gin.H{"token": token, "user": models.UserWithEmail(user)})
 }
 
 func (h AuthHandler) Login(c *gin.Context) {
@@ -65,7 +65,7 @@ func (h AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	token, _ := h.jwt.Generate(user.ID)
-	c.JSON(http.StatusOK, gin.H{"token": token, "user": user})
+	c.JSON(http.StatusOK, gin.H{"token": token, "user": models.UserWithEmail(user)})
 }
 
 func (h AuthHandler) Me(c *gin.Context) {
@@ -74,5 +74,5 @@ func (h AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, models.UserWithEmail(user))
 }

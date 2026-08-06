@@ -20,7 +20,7 @@ export function RegisterPage() {
       <h1 className="text-4xl font-black uppercase">Регистрация</h1>
       <input className="field" placeholder="Имя" value={username} onChange={(e) => setUsername(e.target.value)} />
       <input className="field" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input className="field" type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input className="field" type="password" minLength={12} maxLength={72} placeholder="Пароль (минимум 12 символов)" value={password} onChange={(e) => setPassword(e.target.value)} />
       <button className="btn w-full">Зарегистрироваться</button>
       <Link className="block text-center text-acid" to="/login">Уже есть аккаунт</Link>
     </form>
