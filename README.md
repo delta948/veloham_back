@@ -1,5 +1,7 @@
 # VELOHAM
 
+[![CI](https://github.com/delta948/veloham/actions/workflows/ci.yml/badge.svg)](https://github.com/delta948/veloham/actions/workflows/ci.yml)
+
 VELOHAM is a two-service marketplace for bikes, fixed gear, road, MTB, BMX, parts and accessories.
 
 ## Services
