@@ -58,4 +58,4 @@ npm run dev
 
 Production Compose configuration, migration behavior, backups, upgrades, and rollback are documented in [DEPLOYMENT.md](DEPLOYMENT.md).
 
-Production includes automatic HTTPS through Caddy. A manual protected GitHub deployment workflow performs a backup, fast-forward update, rebuild, and public smoke test.
+Production runs behind server Nginx with HTTPS and binds Docker only to localhost. Files can be delivered through WinSCP; a protected GitHub deployment workflow is also available for later automation.

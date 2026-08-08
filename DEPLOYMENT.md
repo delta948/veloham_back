@@ -1,12 +1,13 @@
 # Production deployment
 
-VELOHAM ships with PostgreSQL, Redis, Go API and Nginx frontend behind Caddy. Caddy obtains and renews Let's Encrypt certificates and redirects HTTP to HTTPS. The browser uses same-origin `/api/v1`, `/uploads`, and `/ws`; database, Redis and API ports remain private.
+VELOHAM ships with PostgreSQL, Redis, Go API and a containerized frontend behind Nginx installed on the server. Docker publishes the frontend only on `127.0.0.1:8080`; Nginx provides the public domain and HTTPS. The browser uses same-origin `/api/v1`, `/uploads`, and `/ws`; database, Redis and API ports remain private.
 
 ## Prerequisites
 
 - A Linux host with Docker Engine and Docker Compose v2
 - A DNS record pointing at the host
-- Public TCP ports 80 and 443 and UDP port 443 allowed by the firewall
+- Nginx and Certbot installed on the server
+- Public TCP ports 80 and 443 allowed by the firewall
 - Persistent-volume backups stored outside the host
 
 ## First deployment
@@ -17,8 +18,32 @@ cp .env.production.example .env.production
 docker compose --env-file .env.production -f docker-compose.prod.yml config
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 docker compose --env-file .env.production -f docker-compose.prod.yml ps
-curl --fail https://${DOMAIN}/healthz
+curl --fail http://127.0.0.1:${HTTP_PORT:-8080}/healthz
 ```
+
+## Upload through WinSCP
+
+1. Connect to the server over SFTP in WinSCP.
+2. Upload the project to a dedicated directory such as `/opt/veloham`. Do not upload local `.env` files, `frontend/node_modules`, `frontend/dist`, backups, or `.git` credentials.
+3. Copy `.env.production.example` to `.env.production` on the server and fill in the production values there.
+4. Open the WinSCP terminal in `/opt/veloham` and run the Compose commands shown above.
+
+For later updates, upload changed project files and run `./scripts/backup.sh ./backups` before `docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build`.
+
+## Server Nginx and HTTPS
+
+Upload `deploy/nginx/veloham.conf.example` to the server, replace every `YOUR_DOMAIN` with the real domain, and install it as `/etc/nginx/sites-available/veloham`. The template starts over HTTP so Nginx can pass its first configuration check; Certbot then adds HTTPS and the redirect automatically.
+
+```bash
+sudo ln -s /etc/nginx/sites-available/veloham /etc/nginx/sites-enabled/veloham
+sudo nginx -t
+sudo systemctl reload nginx
+sudo certbot --nginx -d example.kg -d www.example.kg
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+The upstream must remain `http://127.0.0.1:8080`. Do not expose PostgreSQL, Redis, or backend port 8080 publicly.
 
 Run the full public smoke check after DNS and TLS are ready:
 
@@ -42,7 +67,7 @@ Keep the previous image tags until smoke tests pass. Database migrations are for
 
 ## Required operational controls
 
-- Point the `DOMAIN` A/AAAA record to the server before starting Caddy.
+- Point the domain A/AAAA record to the server before requesting the certificate.
 - Back up the `postgres_data` and `uploads_data` volumes on a schedule; test restores.
 - Restrict SSH and the public port with a firewall.
 - Send container logs to retained centralized storage and alert on unhealthy containers or repeated 5xx responses.
@@ -52,7 +77,7 @@ Keep the previous image tags until smoke tests pass. Database migrations are for
 
 ## GitHub deployment
 
-The manual `Deploy production` workflow deploys only `main`, creates a backup before rebuilding, and runs the public HTTPS smoke test. Configure the protected `production` environment with secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, pinned `DEPLOY_HOST_KEY`, `DEPLOY_PATH` and variable `PUBLIC_ORIGIN`. Keep `.env.production` only on the server.
+If you later replace WinSCP updates with Git, the manual `Deploy production` workflow deploys only `main`, creates a backup before rebuilding, and runs the public HTTPS smoke test. Configure the protected `production` environment with secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, pinned `DEPLOY_HOST_KEY`, `DEPLOY_PATH` and variable `PUBLIC_ORIGIN`. Keep `.env.production` only on the server.
 
 ## Restore drill
 
