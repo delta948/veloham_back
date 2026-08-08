@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .cache/
+.codex/
 *.tsbuildinfo
 backend/api
 backend/uploads/*
