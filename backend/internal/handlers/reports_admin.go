@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -56,11 +57,36 @@ func (h ReportAdminHandler) Users(c *gin.Context) {
 
 func (h ReportAdminHandler) BlockUser(c *gin.Context) {
 	var req struct {
-		IsBlocked bool `json:"is_blocked"`
+		IsBlocked bool   `json:"is_blocked"`
+		Reason    string `json:"reason"`
 	}
-	_ = c.ShouldBindJSON(&req)
-	if err := h.db.Model(&models.User{}).Where("id = ?", c.Param("id")).Update("is_blocked", req.IsBlocked).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	reason := strings.TrimSpace(req.Reason)
+	if req.IsBlocked && reason == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "block reason is required"})
+		return
+	}
+	if len([]rune(reason)) > 500 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "block reason is too long"})
+		return
+	}
+	if c.Param("id") == middleware.CurrentUserID(c) && req.IsBlocked {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "administrator cannot block own account"})
+		return
+	}
+	if !req.IsBlocked {
+		reason = ""
+	}
+	result := h.db.Model(&models.User{}).Where("id = ?", c.Param("id")).Updates(map[string]any{"is_blocked": req.IsBlocked, "blocked_reason": reason})
+	if result.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
 	c.Status(http.StatusNoContent)

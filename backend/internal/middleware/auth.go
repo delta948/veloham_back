@@ -23,8 +23,12 @@ func Auth(jwtService services.JWTService, db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		var user models.User
-		if err := db.Select("id", "is_blocked").First(&user, "id = ?", userID).Error; err != nil || user.IsBlocked {
+		if err := db.Select("id", "is_blocked", "blocked_reason").First(&user, "id = ?", userID).Error; err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user is unavailable"})
+			return
+		}
+		if user.IsBlocked {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "account_blocked", "message": "Ваш аккаунт заблокирован", "reason": user.BlockedReason})
 			return
 		}
 		c.Set("userID", userID)

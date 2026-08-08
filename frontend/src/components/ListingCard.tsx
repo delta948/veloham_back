@@ -20,16 +20,16 @@ export function ListingCard({ listing, onFavorite }: { listing: Listing; onFavor
       <div className="aspect-[4/3] overflow-hidden bg-black">
         <img className="h-full w-full object-cover transition duration-500 group-hover:scale-110" src={image} alt={listing.title} />
       </div>
-      <div className="space-y-4 p-4">
+      <div className="min-w-0 space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 text-xl font-black uppercase">{listing.title}</h3>
-          <button title="В избранное" onClick={addFavorite} className="border border-white/20 p-2 text-acid transition hover:bg-acid hover:text-black">
+          <h3 className="min-w-0 break-words line-clamp-2 text-lg font-black uppercase sm:text-xl">{listing.title}</h3>
+          <button title="В избранное" aria-label="В избранное" onClick={addFavorite} className="grid h-11 w-11 shrink-0 place-items-center border border-white/20 text-acid transition hover:bg-acid hover:text-black">
             <Heart size={18} />
           </button>
         </div>
         <PriceDropBadge listing={listing} detailed />
-        <div className="text-3xl font-black text-acid">{formatSom(listing.price)}</div>
-        <div className="grid grid-cols-2 gap-2 text-sm text-white/70">
+        <div className="break-words text-2xl font-black text-acid sm:text-3xl">{formatSom(listing.price)}</div>
+        <div className="grid grid-cols-1 gap-2 text-sm text-white/70 min-[380px]:grid-cols-2">
           <span className="flex items-center gap-1"><MapPin size={15} /> {listing.city}</span>
           <span className="flex items-center gap-1"><Wrench size={15} /> {listing.condition}</span>
           {listing.brand && <span className="bg-black px-2 py-1 font-bold uppercase text-white/70">{listing.brand}</span>}

@@ -67,20 +67,20 @@ export function WantedDetailPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <section className="panel p-6">
+    <div className="space-y-6 sm:space-y-8">
+      <section className="panel p-4 sm:p-6">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
               <span className="bg-acid px-3 py-1 font-black uppercase text-black">{request.category}</span>
               <span className="bg-black px-3 py-1 font-black uppercase text-white/70">{request.status === 'closed' ? 'Закрыто' : 'Активно'}</span>
             </div>
-            <h1 className="mt-4 text-5xl font-black uppercase">{request.title}</h1>
+            <h1 className="mt-4 break-words text-3xl font-black uppercase sm:text-5xl">{request.title}</h1>
             <p className="mt-3 text-white/65">{request.description}</p>
             <p className="mt-4 text-white/75">{request.city} · ростовка {request.frame_size || 'любая'} · рост {request.rider_height || 'не указан'} см</p>
-            <div className="mt-3 text-3xl font-black text-acid">{formatSom(request.min_budget)} - {formatSom(request.max_budget)}</div>
+            <div className="mt-3 break-words text-2xl font-black text-acid sm:text-3xl">{formatSom(request.min_budget)} - {formatSom(request.max_budget)}</div>
           </div>
-          {user?.id === request.user_id && request.status !== 'closed' && <button className="btn-dark" onClick={close}>Отметить закрытой</button>}
+          {user?.id === request.user_id && request.status !== 'closed' && <button className="btn-dark w-full md:w-auto" onClick={close}>Отметить закрытой</button>}
         </div>
       </section>
 

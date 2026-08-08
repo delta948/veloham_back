@@ -39,5 +39,12 @@ export const saveListing = async (form: FormData, id?: string) => {
   const { data } = id
     ? await api.put<Listing>(`/listings/${id}`, form)
     : await api.post<Listing>('/listings', form);
-  return id && 'listing' in (data as unknown as Record<string, unknown>) ? (data as unknown as { listing: Listing }).listing : data;
+  if (id && 'listing' in (data as unknown as Record<string, unknown>)) {
+	return { listing: (data as unknown as { listing: Listing }).listing, paymentRequired: false, paymentId: '' };
+  }
+	if (!id && 'payment_required' in (data as unknown as Record<string, unknown>)) {
+		const result = data as unknown as { listing: Listing; payment_required: boolean; payment_id: string };
+		return { listing: result.listing, paymentRequired: result.payment_required, paymentId: result.payment_id };
+	}
+	return { listing: data as Listing, paymentRequired: false, paymentId: '' };
 };

@@ -30,7 +30,7 @@ docker compose up --build
 ```
 
 Frontend: http://127.0.0.1:5173  
-Backend API: http://127.0.0.1:8080/api
+Backend API: http://127.0.0.1:8080/api/v1
 
 Local backend without Docker:
 
@@ -52,5 +52,8 @@ npm run dev
 
 - Set `APP_ENV=production` and provide a unique `JWT_SECRET` with at least 32 characters.
 - Set explicit HTTPS origins in `CORS_ORIGIN`; wildcards are rejected in production.
-- To provision an administrator, set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`. The password must contain at least 12 characters.
+- To provision an administrator, set both `ADMIN_EMAIL` and `ADMIN_PASSWORD`. The password must contain at least 6 characters.
+- New registrations require a one-time code sent by email. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_FROM`; production refuses to start without them.
 - Do not commit `.env` files or production credentials.
+
+Production Compose configuration, migration behavior, backups, upgrades, and rollback are documented in [DEPLOYMENT.md](DEPLOYMENT.md).

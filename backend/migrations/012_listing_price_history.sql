@@ -1,7 +1,14 @@
-ALTER TABLE listings
-  ADD COLUMN IF NOT EXISTS initial_price integer,
-  ADD CONSTRAINT listings_price_positive CHECK (price > 0),
-  ADD CONSTRAINT listings_initial_price_positive CHECK (initial_price IS NULL OR initial_price > 0);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS initial_price integer;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'listings_price_positive') THEN
+    ALTER TABLE listings ADD CONSTRAINT listings_price_positive CHECK (price >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'listings_initial_price_positive') THEN
+    ALTER TABLE listings ADD CONSTRAINT listings_initial_price_positive CHECK (initial_price IS NULL OR initial_price >= 0);
+  END IF;
+END $$;
 
 UPDATE listings SET initial_price = price WHERE initial_price IS NULL;
 ALTER TABLE listings ALTER COLUMN initial_price SET NOT NULL;

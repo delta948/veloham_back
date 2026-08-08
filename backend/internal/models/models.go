@@ -1,28 +1,55 @@
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type User struct {
-	ID           string    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `gorm:"uniqueIndex" json:"-"`
-	PasswordHash string    `json:"-"`
-	AvatarURL    string    `json:"avatar_url"`
-	City         string    `json:"city"`
-	Contact      string    `json:"contact"`
-	Role         string    `json:"role"`
-	IsBlocked    bool      `json:"is_blocked"`
-	Rating       float64   `json:"rating"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID            string    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `gorm:"uniqueIndex" json:"-"`
+	Phone         string    `gorm:"uniqueIndex" json:"-"`
+	PasswordHash  string    `json:"-"`
+	AvatarURL     string    `json:"avatar_url"`
+	City          string    `json:"city"`
+	Contact       string    `json:"contact"`
+	Role          string    `json:"role"`
+	IsBlocked     bool      `json:"is_blocked"`
+	BlockedReason string    `json:"blocked_reason,omitempty"`
+	Rating        float64   `json:"rating"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type PendingRegistration struct {
+	ID            string    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `gorm:"uniqueIndex" json:"email"`
+	Phone         *string   `gorm:"uniqueIndex" json:"phone,omitempty"`
+	City          string    `json:"city"`
+	Contact       string    `json:"contact"`
+	PasswordHash  string    `json:"-"`
+	ProviderToken string    `json:"-"`
+	CodeHash      string    `json:"-"`
+	Attempts      int       `json:"-"`
+	ResendCount   int       `json:"-"`
+	CreatedAt     time.Time `json:"created_at"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	ResendAfter   time.Time `json:"resend_after"`
 }
 
 type PrivateUser struct {
 	User
-	Email string `json:"email"`
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
 }
 
 func UserWithEmail(user User) PrivateUser {
-	return PrivateUser{User: user, Email: user.Email}
+	email := user.Email
+	if strings.HasSuffix(email, "@phone.veloham.local") {
+		email = ""
+	}
+	return PrivateUser{User: user, Email: email, Phone: user.Phone}
 }
 
 type Listing struct {
@@ -76,6 +103,8 @@ type ListingPriceHistory struct {
 	User             User      `gorm:"foreignKey:ChangedBy" json:"changed_by_user,omitempty"`
 }
 
+func (ListingPriceHistory) TableName() string { return "listing_price_history" }
+
 type Notification struct {
 	ID             string    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
 	UserID         string    `gorm:"type:uuid" json:"user_id"`
@@ -86,6 +115,22 @@ type Notification struct {
 	Link           string    `json:"link"`
 	IsRead         bool      `json:"is_read"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+type ListingPlacement struct {
+	ID                string     `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	UserID            string     `gorm:"type:uuid;index" json:"user_id"`
+	ListingID         *string    `gorm:"type:uuid;uniqueIndex" json:"listing_id,omitempty"`
+	Kind              string     `json:"kind"`
+	TargetStatus      string     `json:"target_status"`
+	Amount            int        `json:"amount"`
+	Currency          string     `json:"currency"`
+	Status            string     `json:"status"`
+	Provider          string     `json:"provider,omitempty"`
+	ProviderPaymentID string     `json:"provider_payment_id,omitempty"`
+	CheckoutURL       string     `json:"checkout_url,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+	PaidAt            *time.Time `json:"paid_at,omitempty"`
 }
 
 type ListingImage struct {

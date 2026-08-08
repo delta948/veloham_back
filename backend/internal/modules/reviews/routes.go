@@ -14,4 +14,5 @@ func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	reviews := rg.Group("/reviews")
 	reviews.POST("", deps.AuthMW, h.Create)
 	reviews.GET("/users/:id", h.ListByUser)
+	rg.GET("/users/:id/reviews", h.ListByUser)
 }

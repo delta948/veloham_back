@@ -44,32 +44,32 @@ export function MarketPage() {
   }, [params]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-5xl font-black uppercase">Каталог</h1>
+          <h1 className="text-3xl font-black uppercase sm:text-5xl">Каталог</h1>
           <p className="mt-2 text-white/60">Выбери раздел: объявления, услуги мастеров или события вело-сообщества.</p>
         </div>
-        <button className="btn" onClick={load}><Search size={18} /> Искать</button>
+        <button className="btn w-full md:w-auto" onClick={load}><Search size={18} /> Искать</button>
       </div>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Link to="/bikes" className="group border border-white/10 bg-black p-6 shadow-street transition hover:-translate-y-1">
+        <Link to="/bikes" className="group border border-white/10 bg-black p-4 shadow-street transition hover:-translate-y-1 sm:p-6">
           <div className="text-sm font-black uppercase text-acid">Каталог</div>
-          <h2 className="mt-3 text-4xl font-black uppercase">Marketplace</h2>
+          <h2 className="mt-3 text-2xl font-black uppercase sm:text-4xl">Marketplace</h2>
           <p className="mt-2 text-white/60">Велосипеды целиком, рамы, колёса, трансмиссия, тормоза, cockpit, посадка.</p>
           <div className="mt-5 grid grid-cols-2 gap-2 text-sm font-black uppercase">
             {['Bikes', 'Frames', 'Wheels', 'Parts'].map((item) => <span key={item} className="bg-steel px-3 py-2 group-hover:bg-acid group-hover:text-black">{item}</span>)}
           </div>
         </Link>
-        <Link to="/services" className="group border border-white/10 bg-black p-6 shadow-danger transition hover:-translate-y-1">
+        <Link to="/services" className="group border border-white/10 bg-black p-4 shadow-danger transition hover:-translate-y-1 sm:p-6">
           <div className="text-sm font-black uppercase text-danger">Каталог</div>
-          <h2 className="mt-3 text-4xl font-black uppercase">Velo Services</h2>
+          <h2 className="mt-3 text-2xl font-black uppercase sm:text-4xl">Velo Services</h2>
           <p className="mt-2 text-white/60">Ремонт, покраска, сборка, настройка и доставка от мастеров.</p>
         </Link>
-        <Link to="/community" className="group border border-white/10 bg-black p-6 transition hover:-translate-y-1 hover:shadow-street">
+        <Link to="/community" className="group border border-white/10 bg-black p-4 transition hover:-translate-y-1 hover:shadow-street sm:p-6">
           <div className="text-sm font-black uppercase text-acid">Каталог</div>
-          <h2 className="mt-3 text-4xl font-black uppercase">Velo Community</h2>
+          <h2 className="mt-3 text-2xl font-black uppercase sm:text-4xl">Velo Community</h2>
           <p className="mt-2 text-white/60">Покатушки, заезды, встречи и вело-комьюнити Кыргызстана.</p>
         </Link>
       </section>
@@ -86,7 +86,7 @@ export function MarketPage() {
         <div className="space-y-4">
           <div>
             <div className="inline-block bg-danger px-3 py-1 text-xs font-black uppercase text-white">Fit check</div>
-            <h2 className="mt-3 text-4xl font-black uppercase">Подобрать ростовку</h2>
+            <h2 className="mt-3 text-2xl font-black uppercase sm:text-4xl">Подобрать ростовку</h2>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <input className="field" inputMode="numeric" placeholder="Рост, см" value={fitHeight} onChange={(e) => setFitHeight(e.target.value)} />
@@ -98,7 +98,7 @@ export function MarketPage() {
           {fitResult && (
             <div className="border border-acid bg-black p-4">
               <div className="text-sm font-black uppercase text-white/55">Результат</div>
-              <div className="mt-1 text-3xl font-black uppercase text-acid">Тебе подойдёт {fitResult.label}</div>
+              <div className="mt-1 text-2xl font-black uppercase text-acid sm:text-3xl">Тебе подойдёт {fitResult.label}</div>
               <p className="mt-2 text-sm text-white/55">Подбор примерный и зависит от геометрии рамы, длины ног, выноса и посадки.</p>
             </div>
           )}

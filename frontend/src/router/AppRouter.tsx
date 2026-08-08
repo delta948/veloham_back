@@ -16,6 +16,7 @@ import { AdminPage } from '../pages/AdminPage';
 import { WantedPage } from '../pages/WantedPage';
 import { WantedFormPage } from '../pages/WantedFormPage';
 import { WantedDetailPage } from '../pages/WantedDetailPage';
+import { PaymentPage } from '../pages/PaymentPage';
 import { useAuthStore } from '../store/auth';
 
 const HomePage = lazy(() => import('../pages/HomePage').then((module) => ({ default: module.HomePage })));
@@ -53,6 +54,7 @@ export function AppRouter() {
         <Route path="/edit/:id" element={<Protected><ListingFormPage /></Protected>} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/payment" element={<Protected><PaymentPage /></Protected>} />
         <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
         <Route path="/profile/:id" element={<SellerProfilePage />} />
         <Route path="/favorites" element={<Protected><FavoritesPage /></Protected>} />

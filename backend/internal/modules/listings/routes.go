@@ -11,9 +11,11 @@ type Service interface{}
 
 func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	h := handlers.NewListingHandler(deps.DB, deps.Config.UploadDir)
+	priceHistory := handlers.NewPriceHistoryHandler(deps.DB)
 	listings := rg.Group("/listings")
 	listings.GET("", h.List)
 	listings.GET("/:id", h.Get)
+	listings.GET("/:id/price-history", priceHistory.Get)
 	listings.POST("", deps.AuthMW, h.Create)
 	listings.PUT("/:id", deps.AuthMW, h.Update)
 	listings.DELETE("/:id", deps.AuthMW, h.Delete)

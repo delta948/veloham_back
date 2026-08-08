@@ -31,8 +31,8 @@ export function WantedFormPage() {
   };
 
   return (
-    <form onSubmit={submit} className="panel mx-auto max-w-3xl space-y-5 p-6">
-      <h1 className="text-4xl font-black uppercase">Создать заявку</h1>
+    <form onSubmit={submit} className="panel mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
+      <h1 className="text-2xl font-black uppercase sm:text-4xl">Создать заявку</h1>
       <input className="field" placeholder="Что хочешь купить" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
       <textarea className="field min-h-32" placeholder="Описание" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
       <div className="grid gap-4 md:grid-cols-2">

@@ -32,20 +32,20 @@ export function CategoryListingsPage({ category, categories, title, subtitle }: 
   }, [category, categories]);
 
   return (
-    <div className="space-y-8">
-      <section className="border border-white/10 bg-black p-6 shadow-street md:p-8">
+    <div className="space-y-6 sm:space-y-8">
+      <section className="border border-white/10 bg-black p-4 shadow-street sm:p-6 md:p-8">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <div className="mb-3 inline-block bg-acid px-3 py-1 text-sm font-black uppercase text-black">{category}</div>
-            <h1 className="text-5xl font-black uppercase md:text-7xl">{title}</h1>
+            <h1 className="break-words text-3xl font-black uppercase sm:text-5xl md:text-7xl">{title}</h1>
             <p className="mt-3 max-w-2xl text-white/65">{subtitle}</p>
           </div>
-          {!isCommunity && <button className="btn" onClick={load}><Search size={18} /> Искать</button>}
+          {!isCommunity && <button className="btn w-full md:w-auto" onClick={load}><Search size={18} /> Искать</button>}
         </div>
       </section>
 
       {!isCommunity && (
-        <div className="panel grid gap-3 p-4 md:grid-cols-6">
+        <div className="panel grid gap-3 p-3 sm:p-4 md:grid-cols-6">
           <input className="field md:col-span-2" placeholder={`Поиск внутри ${title}`} value={filters.search ?? ''} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
           <input className="field" placeholder="Город: Бишкек, Ош..." value={filters.city ?? ''} onChange={(e) => setFilters({ ...filters, city: e.target.value })} />
           <input className="field" placeholder="Цена до" value={filters.max_price ?? ''} onChange={(e) => setFilters({ ...filters, max_price: e.target.value })} />

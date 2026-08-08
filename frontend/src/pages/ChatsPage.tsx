@@ -9,13 +9,13 @@ export function ChatsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-5xl font-black uppercase">Чаты</h1>
+      <h1 className="text-3xl font-black uppercase sm:text-5xl">Чаты</h1>
       <div className="grid gap-4">
         {chats.map((chat) => (
-          <Link key={chat.id} to={`/chats/${chat.id}`} className="panel flex items-center justify-between p-4 transition hover:border-acid">
-            <div>
+          <Link key={chat.id} to={`/chats/${chat.id}`} className="panel flex flex-col items-start gap-3 p-4 transition hover:border-acid sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h2 className="text-xl font-black uppercase">{chat.listing?.title}</h2>
-              <p className="text-white/60">Покупатель: {chat.buyer?.username} · Продавец: {chat.seller?.username}</p>
+              <p className="break-words text-sm text-white/60 sm:text-base">Покупатель: {chat.buyer?.username} · Продавец: {chat.seller?.username}</p>
             </div>
             <span className="text-acid font-black">Открыть</span>
           </Link>

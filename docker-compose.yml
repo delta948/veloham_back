@@ -9,7 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U veloham -d veloham"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -29,8 +33,10 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - "8080:8080"
     volumes:
@@ -38,13 +44,10 @@ services:
 
   frontend:
     build: ./frontend
-    environment:
-      VITE_API_URL: http://127.0.0.1:8080/api
-      VITE_WS_URL: ws://127.0.0.1:8080/ws
     depends_on:
       - backend
     ports:
-      - "5173:5173"
+      - "5173:80"
 
 volumes:
   postgres_data:

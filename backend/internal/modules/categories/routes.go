@@ -5,10 +5,9 @@ import (
 	"veloham/backend/internal/common"
 )
 
-func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
+func RegisterRoutes(rg *gin.RouterGroup, _ common.Dependencies) {
 	handler := NewHandler(NewService())
 
 	categories := rg.Group("/categories")
 	categories.GET("", handler.List)
-	categories.POST("", deps.AuthMW, deps.AdminMW, handler.Create)
 }

@@ -13,9 +13,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"veloham/backend/internal/middleware"
 	"veloham/backend/internal/models"
 	"veloham/backend/internal/services"
@@ -41,7 +43,7 @@ func NewListingHandler(db *gorm.DB, uploadDir string) ListingHandler {
 
 func (h ListingHandler) List(c *gin.Context) {
 	var listings []models.Listing
-	q := h.db.Preload("Images").Preload("User").Preload("BuildCard").Preload("MatchPref").Where("status <> ?", "hidden")
+	q := h.db.Preload("Images").Preload("User").Preload("BuildCard").Preload("MatchPref").Where("status NOT IN ?", []string{"hidden", "pending_payment"})
 	if search := c.Query("search"); search != "" {
 		like := "%" + search + "%"
 		q = q.Where("title ILIKE ? OR description ILIKE ? OR city ILIKE ?", like, like, like)
@@ -142,6 +144,10 @@ func (h ListingHandler) Get(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "listing not found"})
 		return
 	}
+	if listing.Status == "pending_payment" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "listing not found"})
+		return
+	}
 	h.db.Model(&listing).UpdateColumn("views", gorm.Expr("views + ?", 1))
 	hydrateListingContract(&listing)
 	h.hydratePriceSummary(&listing)
@@ -150,7 +156,8 @@ func (h ListingHandler) Get(c *gin.Context) {
 
 func (h ListingHandler) hydratePriceSummary(listing *models.Listing) {
 	var last models.ListingPriceHistory
-	if h.db.Where("listing_id = ?", listing.ID).Order("changed_at desc").First(&last).Error == nil {
+	result := h.db.Where("listing_id = ?", listing.ID).Order("changed_at desc").Limit(1).Find(&last)
+	if result.Error == nil && result.RowsAffected > 0 {
 		listing.PreviousPrice = &last.OldPrice
 		listing.LastPriceChangeAt = &last.ChangedAt
 	}
@@ -181,11 +188,50 @@ func (h ListingHandler) Create(c *gin.Context) {
 		return
 	}
 	listing.InitialPrice = listing.Price
-	if err := h.db.Create(&listing).Error; err != nil {
+	targetStatus := listing.Status
+	if targetStatus != "active" && targetStatus != "hidden" {
+		targetStatus = "active"
+	}
+	placement := models.ListingPlacement{UserID: listing.UserID, TargetStatus: targetStatus, Currency: "KGS"}
+	paymentRequired := false
+	err = h.db.Transaction(func(tx *gorm.DB) error {
+		var user models.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").First(&user, "id = ?", listing.UserID).Error; err != nil {
+			return err
+		}
+		var freeUsed int64
+		if err := tx.Model(&models.ListingPlacement{}).Where("user_id = ? AND kind = 'free' AND status = 'paid'", listing.UserID).Count(&freeUsed).Error; err != nil {
+			return err
+		}
+		if freeUsed < 3 {
+			placement.Kind, placement.Status, placement.Amount = "free", "paid", 0
+			now := time.Now()
+			placement.PaidAt = &now
+			listing.Status = targetStatus
+		} else {
+			var pending int64
+			if err := tx.Model(&models.ListingPlacement{}).Where("user_id = ? AND kind = 'paid' AND status = 'pending'", listing.UserID).Count(&pending).Error; err != nil {
+				return err
+			}
+			if pending >= 3 {
+				return errors.New("too many pending listing payments")
+			}
+			placement.Kind, placement.Status, placement.Amount = "paid", "pending", 30
+			listing.Status, paymentRequired = "pending_payment", true
+		}
+		if err := tx.Create(&listing).Error; err != nil {
+			return err
+		}
+		placement.ListingID = &listing.ID
+		return tx.Create(&placement).Error
+	})
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	if err := h.saveImages(files, listing.ID); err != nil {
+		h.db.Delete(&placement)
+		h.db.Delete(&listing)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save images"})
 		return
 	}
@@ -193,6 +239,10 @@ func (h ListingHandler) Create(c *gin.Context) {
 	h.saveMatchPreference(c, listing.ID)
 	h.db.Preload("Images").Preload("User").Preload("BuildCard").Preload("MatchPref").First(&listing, "id = ?", listing.ID)
 	hydrateListingContract(&listing)
+	if paymentRequired {
+		c.JSON(http.StatusAccepted, gin.H{"listing": listing, "payment_required": true, "payment_id": placement.ID, "amount": placement.Amount, "currency": placement.Currency})
+		return
+	}
 	c.JSON(http.StatusCreated, listing)
 }
 
@@ -224,6 +274,9 @@ func (h ListingHandler) Update(c *gin.Context) {
 	}
 	patch.DealType = normalizeDealType(patch.DealType)
 	normalizeListingContract(&patch)
+	if listing.Status == "pending_payment" {
+		patch.Status = "pending_payment"
+	}
 	priceResult, err := (services.PriceHistoryService{DB: h.db}).ChangePrice(listing.ID, actorID, isAdmin, patch.Price, c.ClientIP())
 	if err != nil {
 		status := http.StatusBadRequest
@@ -271,6 +324,14 @@ func (h ListingHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can delete listing"})
 		return
 	}
+	if listing.Status == "pending_payment" {
+		var placement models.ListingPlacement
+		if err := h.db.Where("listing_id = ?", listing.ID).First(&placement).Error; err == nil && placement.CheckoutURL != "" {
+			c.JSON(http.StatusConflict, gin.H{"error": "payment has already been initialized"})
+			return
+		}
+		h.db.Where("listing_id = ?", listing.ID).Delete(&models.ListingPlacement{})
+	}
 	if err := deleteListingCascade(h.db, listing.ID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -295,6 +356,10 @@ func (h ListingHandler) PatchStatus(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can change status"})
 		return
 	}
+	if listing.Status == "pending_payment" {
+		c.JSON(http.StatusPaymentRequired, gin.H{"error": "payment is required before publishing"})
+		return
+	}
 	h.db.Model(&listing).Update("status", req.Status)
 	c.JSON(http.StatusOK, listing)
 }
@@ -309,6 +374,10 @@ func (h ListingHandler) Archive(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can archive listing"})
 		return
 	}
+	if listing.Status == "pending_payment" {
+		c.JSON(http.StatusPaymentRequired, gin.H{"error": "payment is required before publishing"})
+		return
+	}
 	h.db.Model(&listing).Update("status", "hidden")
 	c.JSON(http.StatusOK, listing)
 }
@@ -321,6 +390,10 @@ func (h ListingHandler) Bump(c *gin.Context) {
 	}
 	if listing.UserID != middleware.CurrentUserID(c) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can bump listing"})
+		return
+	}
+	if listing.Status == "pending_payment" {
+		c.JSON(http.StatusPaymentRequired, gin.H{"error": "payment is required before publishing"})
 		return
 	}
 	h.db.Model(&listing).Updates(map[string]any{"created_at": gorm.Expr("now()"), "updated_at": gorm.Expr("now()")})

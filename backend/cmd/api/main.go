@@ -1,7 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -9,6 +15,7 @@ import (
 	"veloham/backend/internal/database"
 	"veloham/backend/internal/models"
 	"veloham/backend/internal/routes"
+	"veloham/backend/migrations"
 )
 
 func main() {
@@ -17,10 +24,7 @@ func main() {
 		log.Fatalf("invalid configuration: %v", err)
 	}
 	db := database.Connect(cfg.DatabaseURL)
-	if err := db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`).Error; err != nil {
-		log.Fatalf("enable uuid-ossp extension: %v", err)
-	}
-	if err := db.AutoMigrate(&models.User{}, &models.Listing{}, &models.ListingImage{}, &models.BuildCard{}, &models.Favorite{}, &models.MatchPreference{}, &models.Chat{}, &models.Message{}, &models.Review{}, &models.Report{}, &models.WantedRequest{}, &models.WantedOffer{}); err != nil {
+	if err := migrations.Up(db); err != nil {
 		log.Fatalf("migrate database: %v", err)
 	}
 	db.Model(&models.User{}).Where("role = '' OR role IS NULL").Update("role", "user")
@@ -65,8 +69,30 @@ func main() {
 		WHERE deal_type NOT IN ('продажа', 'обмен', 'продажа или обмен')
 	`)
 	r := routes.Setup(db, cfg)
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("run server: %v", err)
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	serverErrors := make(chan error, 1)
+	go func() { serverErrors <- server.ListenAndServe() }()
+
+	shutdownSignal, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	select {
+	case err := <-serverErrors:
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("run server: %v", err)
+		}
+	case <-shutdownSignal.Done():
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("graceful shutdown: %v", err)
+		}
 	}
 }
 

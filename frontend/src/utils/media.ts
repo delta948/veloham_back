@@ -9,3 +9,9 @@ export function listingImageUrl(imageUrl?: string) {
   }
   return `${MEDIA_BASE}${imageUrl}`;
 }
+
+export function avatarImageUrl(imageUrl?: string) {
+  if (!imageUrl || imageUrl.startsWith('data:') || imageUrl.startsWith('blob:')) return imageUrl ?? '';
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  return `${MEDIA_BASE}${imageUrl}`;
+}

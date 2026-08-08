@@ -34,15 +34,15 @@ export function ChatPage() {
   };
 
   return (
-    <div className="panel mx-auto flex h-[72vh] max-w-4xl flex-col">
+    <div className="panel mx-auto flex h-[calc(100dvh-10.5rem)] min-h-[28rem] max-w-4xl flex-col md:h-[72vh]">
       <div className="border-b border-white/10 p-4">
-        <h1 className="text-3xl font-black uppercase">Чат</h1>
+        <h1 className="text-2xl font-black uppercase sm:text-3xl">Чат</h1>
       </div>
       <div className="flex-1 space-y-3 overflow-auto p-4">
         {messages.map((message) => {
           const own = message.sender_id === user?.id;
           return (
-            <div key={message.id} className={`max-w-[80%] border p-3 ${own ? 'ml-auto border-acid bg-acid text-black' : 'border-white/15 bg-black text-white'}`}>
+            <div key={message.id} className={`max-w-[90%] break-words border p-3 sm:max-w-[80%] ${own ? 'ml-auto border-acid bg-acid text-black' : 'border-white/15 bg-black text-white'}`}>
               <div className="text-xs font-black uppercase opacity-70">{message.sender?.username ?? 'user'}</div>
               <p>{message.text}</p>
               <div className="mt-1 text-[11px] opacity-60">{new Date(message.created_at).toLocaleTimeString('ru-KG', { hour: '2-digit', minute: '2-digit' })} · {message.is_read ? 'прочитано' : 'не прочитано'}</div>
@@ -53,9 +53,9 @@ export function ChatPage() {
       <div className="flex gap-2 overflow-x-auto border-t border-white/10 p-3">
         {quickMessages.map((item) => <button key={item} className="min-w-fit border border-white/15 bg-black px-3 py-2 text-xs font-black uppercase text-white/75 hover:border-acid hover:text-acid" onClick={() => sendQuick(item)}>{item}</button>)}
       </div>
-      <form onSubmit={send} className="flex gap-3 border-t border-white/10 p-4">
+      <form onSubmit={send} className="flex gap-2 border-t border-white/10 p-3 sm:gap-3 sm:p-4">
         <input className="field" placeholder="Сообщение" value={text} onChange={(e) => setText(e.target.value)} />
-        <button className="btn" title="Отправить"><Send size={18} /></button>
+        <button className="btn shrink-0 px-4" title="Отправить" aria-label="Отправить"><Send size={18} /></button>
       </form>
     </div>
   );

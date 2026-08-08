@@ -1,12 +1,14 @@
 export type User = {
   id: string;
   username: string;
-  email: string;
+  email?: string;
+  phone?: string;
   avatar_url?: string;
   city?: string;
   contact?: string;
   role: 'user' | 'admin';
   is_blocked: boolean;
+  blocked_reason?: string;
   rating: number;
   created_at: string;
 };

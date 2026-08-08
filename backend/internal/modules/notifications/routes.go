@@ -5,15 +5,10 @@ import (
 	"veloham/backend/internal/common"
 )
 
-type Repository interface{}
-type Service interface{}
-
 func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
+	handler := NewHandler(NewService(NewRepository(deps.DB)))
 	notifications := rg.Group("/notifications", deps.AuthMW)
-	notifications.GET("", func(c *gin.Context) {
-		c.JSON(200, []any{})
-	})
-	notifications.PATCH("/:id/read", func(c *gin.Context) {
-		c.Status(204)
-	})
+	notifications.GET("", handler.List)
+	notifications.PATCH("/read-all", handler.MarkAllRead)
+	notifications.PATCH("/:id/read", handler.MarkRead)
 }

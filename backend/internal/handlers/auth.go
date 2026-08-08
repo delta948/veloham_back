@@ -23,11 +23,11 @@ func NewAuthHandler(db *gorm.DB, jwt services.JWTService) AuthHandler {
 type authRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=12,max=72"`
+	Password string `json:"password" binding:"required,min=6,max=72"`
 }
 
 type loginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required,max=72"`
 }
 
@@ -57,12 +57,12 @@ func (h AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	var user models.User
-	if err := h.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+	if err := h.db.Where("LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?)", req.Email, req.Email).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 	if user.IsBlocked {
-		c.JSON(http.StatusForbidden, gin.H{"error": "user blocked"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "account_blocked", "message": "Ваш аккаунт заблокирован", "reason": user.BlockedReason})
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {

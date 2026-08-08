@@ -30,10 +30,66 @@ func (h *Handler) Register(c *gin.Context) {
 			response.Error(c, http.StatusConflict, err.Error())
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, "registration failed")
+		if errors.Is(err, ErrResendCooldown) || errors.Is(err, ErrVerificationLimit) {
+			response.Error(c, http.StatusTooManyRequests, err.Error())
+			return
+		}
+		if errors.Is(err, errEmailNotConfigured) {
+			response.Error(c, http.StatusServiceUnavailable, "email delivery is not configured")
+			return
+		}
+		response.Error(c, http.StatusBadGateway, "failed to send verification email")
+		return
+	}
+	c.JSON(http.StatusAccepted, res)
+}
+
+func (h *Handler) VerifyRegistration(c *gin.Context) {
+	var req VerifyRegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	res, err := h.service.VerifyRegistration(c.Request.Context(), req.VerificationID, req.Code)
+	if err != nil {
+		if errors.Is(err, ErrVerificationLimit) {
+			response.Error(c, http.StatusTooManyRequests, err.Error())
+			return
+		}
+		if errors.Is(err, ErrVerification) {
+			response.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(c, http.StatusBadGateway, "failed to verify email code")
 		return
 	}
 	response.Created(c, res)
+}
+
+func (h *Handler) ResendRegistration(c *gin.Context) {
+	var req ResendRegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	res, err := h.service.ResendRegistration(c.Request.Context(), req.VerificationID)
+	if err != nil {
+		if errors.Is(err, ErrResendCooldown) || errors.Is(err, ErrVerificationLimit) {
+			response.Error(c, http.StatusTooManyRequests, err.Error())
+			return
+		}
+		if errors.Is(err, ErrVerification) {
+			response.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		if errors.Is(err, errEmailNotConfigured) {
+			response.Error(c, http.StatusServiceUnavailable, "email delivery is not configured")
+			return
+		}
+		response.Error(c, http.StatusBadGateway, "failed to resend verification email")
+		return
+	}
+	c.JSON(http.StatusAccepted, res)
 }
 
 func (h *Handler) Login(c *gin.Context) {
@@ -42,10 +98,16 @@ func (h *Handler) Login(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	if req.Identifier() == "" {
+		response.Error(c, http.StatusBadRequest, "login is required")
+		return
+	}
 	res, err := h.service.Login(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, ErrUserBlocked) {
-			response.Error(c, http.StatusForbidden, err.Error())
+			var blocked UserBlockedError
+			errors.As(err, &blocked)
+			c.JSON(http.StatusForbidden, gin.H{"error": "account_blocked", "message": "Ваш аккаунт заблокирован", "reason": blocked.Reason})
 			return
 		}
 		response.Error(c, http.StatusUnauthorized, ErrInvalidCredentials.Error())
@@ -63,19 +125,6 @@ func (h *Handler) Me(c *gin.Context) {
 	response.OK(c, models.UserWithEmail(user))
 }
 
-func (h *Handler) ForgotPassword(c *gin.Context) {
-	var req PasswordForgotRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := h.service.AcceptPasswordRecovery(c.Request.Context(), req); err != nil {
-		response.Error(c, http.StatusInternalServerError, "password recovery failed")
-		return
-	}
-	c.JSON(http.StatusAccepted, gin.H{"status": "password recovery request accepted"})
-}
-
 func (h *Handler) ChangePassword(c *gin.Context) {
 	var req PasswordChangeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -87,12 +136,4 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"status": "password changed"})
-}
-
-func (h *Handler) ConfirmEmail(c *gin.Context) {
-	c.JSON(http.StatusAccepted, gin.H{"status": "email confirmation endpoint reserved"})
-}
-
-func (h *Handler) Refresh(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "refresh token service is planned"})
 }

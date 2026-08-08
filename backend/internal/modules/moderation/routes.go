@@ -3,10 +3,13 @@ package moderation
 import (
 	"github.com/gin-gonic/gin"
 	"veloham/backend/internal/common"
+	"veloham/backend/internal/handlers"
 )
 
 func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	handler := NewHandler(NewService(deps.DB))
+	reportHandler := handlers.NewReportAdminHandler(deps.DB)
+	rg.POST("/reports", deps.AuthMW, reportHandler.CreateReport)
 
 	moderation := rg.Group("/moderation", deps.AuthMW, deps.AdminMW)
 	moderation.GET("/reports", handler.Reports)

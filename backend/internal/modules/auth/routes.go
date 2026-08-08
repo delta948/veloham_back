@@ -6,14 +6,13 @@ import (
 )
 
 func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
-	handler := NewHandler(NewService(deps.DB, deps.JWT))
+	handler := NewHandler(NewService(deps.DB, deps.JWT, deps.Config))
 
 	auth := rg.Group("/auth")
 	auth.POST("/register", deps.AuthRateMW, handler.Register)
+	auth.POST("/register/verify", deps.AuthRateMW, handler.VerifyRegistration)
+	auth.POST("/register/resend", deps.AuthRateMW, handler.ResendRegistration)
 	auth.POST("/login", deps.AuthRateMW, handler.Login)
-	auth.POST("/password/forgot", deps.AuthRateMW, handler.ForgotPassword)
 	auth.GET("/me", deps.AuthMW, handler.Me)
-	auth.POST("/refresh", handler.Refresh)
 	auth.POST("/password/change", deps.AuthMW, handler.ChangePassword)
-	auth.POST("/email/confirm", handler.ConfirmEmail)
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func Connect(databaseURL string) *gorm.DB {
-	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+	db, err := gorm.Open(postgres.New(postgres.Config{DSN: databaseURL, PreferSimpleProtocol: true}), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("connect database: %v", err)
 	}

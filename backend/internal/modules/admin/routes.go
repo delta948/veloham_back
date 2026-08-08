@@ -11,6 +11,7 @@ type Service interface{}
 
 func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	h := handlers.NewReportAdminHandler(deps.DB)
+	priceHistory := handlers.NewPriceHistoryHandler(deps.DB)
 	admin := rg.Group("/admin", deps.AuthMW, deps.AdminMW)
 	admin.GET("/reports", h.Reports)
 	admin.GET("/users", h.Users)
@@ -18,5 +19,6 @@ func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	admin.GET("/listings", h.Listings)
 	admin.DELETE("/listings/:id", h.DeleteListing)
 	admin.GET("/stats", h.Stats)
+	admin.GET("/price-history", priceHistory.AdminList)
 	admin.POST("/moderation/listings/:id/hide", h.HideListing)
 }

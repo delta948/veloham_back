@@ -13,13 +13,13 @@ export function WantedPage() {
   }, []);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <section className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-5xl font-black uppercase">Хочу купить</h1>
+          <h1 className="text-3xl font-black uppercase sm:text-5xl">Хочу купить</h1>
           <p className="mt-2 text-white/60">Заявки покупателей: бюджет, город, ростовка и подходящие объявления.</p>
         </div>
-        <Link className="btn" to="/wanted/create"><Plus size={18} /> Создать заявку</Link>
+        <Link className="btn w-full md:w-auto" to="/wanted/create"><Plus size={18} /> Создать заявку</Link>
       </section>
 
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getListing, saveListing } from '../api/listings';
+import { api } from '../api/client';
 import { CATEGORIES } from '../constants/catalog';
 import { DEAL_TYPES, LISTING_LABELS, labelTone } from '../constants/listingMeta';
 import { BIKE_TYPES, FRAME_SIZE_OPTIONS, type BikeType } from '../utils/sizeFit';
@@ -22,6 +23,11 @@ export function ListingFormPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState(empty);
   const [files, setFiles] = useState<FileList | null>(null);
+  const [quota, setQuota] = useState<{ free_remaining: number; next_price: number } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => { api.get('/payments/quota').then(({ data }) => setQuota(data)).catch(() => undefined); }, []);
 
   useEffect(() => {
     if (id) getListing(id).then((listing) => setForm({
@@ -70,6 +76,7 @@ export function ListingFormPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true); setError('');
     const data = new FormData();
     Object.entries(form).forEach(([key, value]) => {
       if (key === 'labels') return;
@@ -77,8 +84,18 @@ export function ListingFormPage() {
     });
     form.labels.forEach((label) => data.append('labels', label));
     Array.from(files ?? []).forEach((file) => data.append('images', file));
-    const listing = await saveListing(data, id);
-    navigate(`/listing/${listing.id}`);
+    try {
+		const result = await saveListing(data, id);
+		if (result.paymentRequired) {
+			const { data: payment } = await api.post(`/payments/${result.paymentId}/checkout`);
+			window.location.assign(payment.checkout_url);
+			return;
+		}
+		navigate(`/listing/${result.listing.id}`);
+	} catch {
+		setError('Не удалось сохранить объявление или открыть оплату. Попробуй ещё раз.');
+		setSubmitting(false);
+	}
   };
 
   const toggleLabel = (label: string) => {
@@ -93,8 +110,10 @@ export function ListingFormPage() {
   const frameSizeOptions = FRAME_SIZE_OPTIONS[form.bike_type];
 
   return (
-    <form onSubmit={submit} className="panel mx-auto max-w-5xl space-y-8 p-6">
-      <h1 className="text-4xl font-black uppercase">{id ? 'Редактировать' : 'Создать объявление'}</h1>
+    <form onSubmit={submit} className="panel mx-auto max-w-5xl space-y-6 p-4 sm:space-y-8 sm:p-6">
+      <h1 className="break-words text-2xl font-black uppercase sm:text-4xl">{id ? 'Редактировать' : 'Создать объявление'}</h1>
+      {!id && quota && <div className="border border-acid/40 bg-acid/10 p-4 text-sm"><b className="text-acid">Бесплатных размещений осталось: {quota.free_remaining}</b><p className="mt-1 text-white/65">После трёх объявлений каждое следующее размещение стоит {quota.next_price} сом. Публикация произойдёт только после подтверждения оплаты системой.</p></div>}
+      {error && <div className="border border-danger bg-danger/15 p-3 text-danger">{error}</div>}
       <section className="space-y-4">
         <h2 className="text-2xl font-black uppercase text-acid">Объявление</h2>
         <input className="field" placeholder="Название" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -186,7 +205,7 @@ export function ListingFormPage() {
           </label>
         </div>
       </section>
-      <button className="btn w-full">{id ? 'Сохранить' : 'Опубликовать'}</button>
+      <button className="btn w-full" disabled={submitting}>{submitting ? 'Подождите…' : id ? 'Сохранить' : quota?.free_remaining === 0 ? `Оплатить ${quota.next_price} сом и опубликовать` : 'Опубликовать'}</button>
     </form>
   );
 }

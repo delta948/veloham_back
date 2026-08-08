@@ -1,6 +1,9 @@
 package routes
 
 import (
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -25,6 +28,7 @@ import (
 	"veloham/backend/internal/modules/moderation"
 	"veloham/backend/internal/modules/notifications"
 	"veloham/backend/internal/modules/parts"
+	"veloham/backend/internal/modules/payments"
 	"veloham/backend/internal/modules/reviews"
 	"veloham/backend/internal/modules/search"
 	"veloham/backend/internal/modules/uploads"
@@ -37,19 +41,41 @@ func Setup(db *gorm.DB, cfg config.Config) *gin.Engine {
 	_ = os.MkdirAll(cfg.UploadDir, 0755)
 
 	r := gin.Default()
-	_ = r.SetTrustedProxies(nil)
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		panic("invalid trusted proxy configuration: " + err.Error())
+	}
 	r.MaxMultipartMemory = 40 << 20
 	origins := strings.Split(cfg.CORSOrigin, ",")
 	for i := range origins {
 		origins[i] = strings.TrimSpace(origins[i])
 	}
 
-	r.Use(middleware.SecurityHeaders(), cors.New(cors.Config{
+	corsConfig := cors.Config{
 		AllowOrigins:     origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
-	}))
+	}
+	if !strings.EqualFold(cfg.Environment, "production") {
+		corsConfig.AllowOriginFunc = func(origin string) bool {
+			parsed, err := url.Parse(origin)
+			if err != nil || parsed.Port() != "5173" {
+				return false
+			}
+			host := parsed.Hostname()
+			ip := net.ParseIP(host)
+			return host == "localhost" || strings.HasSuffix(host, ".local") || ip != nil && (ip.IsLoopback() || ip.IsPrivate())
+		}
+	}
+	r.Use(middleware.SecurityHeaders(), cors.New(corsConfig))
+	r.GET("/healthz", func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil || sqlDB.PingContext(c.Request.Context()) != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 	r.Static("/uploads", cfg.UploadDir)
 	r.GET("/api/docs", func(c *gin.Context) {
 		c.JSON(200, docs.OpenAPI())
@@ -65,7 +91,7 @@ func Setup(db *gorm.DB, cfg config.Config) *gin.Engine {
 	priceHistoryHandler := handlers.NewPriceHistoryHandler(db)
 	favoriteHandler := handlers.NewFavoriteHandler(db)
 	chatHandler := handlers.NewChatHandler(db, hub, jwtService, cfg.CORSOrigin)
-	userHandler := handlers.NewUserHandler(db)
+	userHandler := handlers.NewUserHandler(db, cfg.UploadDir)
 	reviewHandler := handlers.NewReviewHandler(db)
 	adminHandler := handlers.NewReportAdminHandler(db)
 	wantedHandler := handlers.NewWantedHandler(db)
@@ -82,6 +108,7 @@ func Setup(db *gorm.DB, cfg config.Config) *gin.Engine {
 	listings.RegisterRoutes(v1, deps)
 	categories.RegisterRoutes(v1, deps)
 	parts.RegisterRoutes(v1, deps)
+	payments.RegisterRoutes(v1, deps)
 	chat.RegisterRoutes(v1, deps)
 	messages.RegisterRoutes(v1, deps)
 	search.RegisterRoutes(v1, deps)
@@ -95,12 +122,15 @@ func Setup(db *gorm.DB, cfg config.Config) *gin.Engine {
 	uploads.RegisterRoutes(v1, deps)
 
 	api := r.Group("/api")
-	api.POST("/auth/register", authRateMW, authHandler.Register)
+	api.POST("/auth/register", authRateMW, func(c *gin.Context) {
+		c.JSON(http.StatusGone, gin.H{"error": "use /api/v1/auth/register with phone verification"})
+	})
 	api.POST("/auth/login", authRateMW, authHandler.Login)
 	api.GET("/auth/me", authMW, authHandler.Me)
 
 	api.GET("/users/:id", userHandler.Get)
 	api.PUT("/users/me", authMW, userHandler.UpdateMe)
+	api.POST("/users/me/avatar", authMW, userHandler.UploadAvatar)
 	api.GET("/users/:id/listings", userHandler.Listings)
 
 	api.GET("/listings", listingHandler.List)
