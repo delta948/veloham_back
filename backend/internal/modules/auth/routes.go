@@ -13,6 +13,8 @@ func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	auth.POST("/register/verify", deps.AuthRateMW, handler.VerifyRegistration)
 	auth.POST("/register/resend", deps.AuthRateMW, handler.ResendRegistration)
 	auth.POST("/login", deps.AuthRateMW, handler.Login)
+	auth.POST("/password/forgot", deps.AuthRateMW, handler.ForgotPassword)
+	auth.POST("/password/reset", deps.AuthRateMW, handler.ResetPassword)
 	auth.GET("/me", deps.AuthMW, handler.Me)
 	auth.POST("/password/change", deps.AuthMW, handler.ChangePassword)
 }

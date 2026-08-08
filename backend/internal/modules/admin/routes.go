@@ -16,6 +16,7 @@ func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	admin.GET("/reports", h.Reports)
 	admin.GET("/users", h.Users)
 	admin.PATCH("/users/:id/block", h.BlockUser)
+	admin.GET("/block-events", h.BlockEvents)
 	admin.GET("/listings", h.Listings)
 	admin.DELETE("/listings/:id", h.DeleteListing)
 	admin.GET("/stats", h.Stats)

@@ -34,6 +34,10 @@ func main() {
 	if err := bootstrapAdmin(db, cfg); err != nil {
 		log.Fatalf("bootstrap admin: %v", err)
 	}
+	cleanupExpiredRecords(db)
+	cleanupCtx, stopCleanup := context.WithCancel(context.Background())
+	defer stopCleanup()
+	go runCleanup(cleanupCtx, db)
 	db.Model(&models.Listing{}).Where("deal_type = '' OR deal_type IS NULL").Update("deal_type", "продажа")
 	db.Exec(`
 		UPDATE listings
@@ -92,6 +96,29 @@ func main() {
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
 			log.Printf("graceful shutdown: %v", err)
+		}
+	}
+}
+
+func cleanupExpiredRecords(db *gorm.DB) {
+	now := time.Now()
+	if result := db.Where("expires_at < ?", now).Delete(&models.PendingRegistration{}); result.Error != nil {
+		log.Printf("cleanup expired registrations: %v", result.Error)
+	}
+	if result := db.Where("expires_at < ?", now).Delete(&models.PasswordReset{}); result.Error != nil {
+		log.Printf("cleanup expired password resets: %v", result.Error)
+	}
+}
+
+func runCleanup(ctx context.Context, db *gorm.DB) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanupExpiredRecords(db)
 		}
 	}
 }

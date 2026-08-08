@@ -20,6 +20,14 @@ type SMTPMailer struct {
 }
 
 func (m SMTPMailer) SendVerificationCode(ctx context.Context, recipient, code string) error {
+	return m.sendCode(ctx, recipient, code, "VELOHAM - код подтверждения", "Ваш код подтверждения VELOHAM: ")
+}
+
+func (m SMTPMailer) SendPasswordResetCode(ctx context.Context, recipient, code string) error {
+	return m.sendCode(ctx, recipient, code, "VELOHAM - восстановление пароля", "Код для восстановления пароля VELOHAM: ")
+}
+
+func (m SMTPMailer) sendCode(ctx context.Context, recipient, code, subject, intro string) error {
 	from, err := mail.ParseAddress(m.From)
 	if err != nil {
 		return fmt.Errorf("invalid SMTP_FROM: %w", err)
@@ -61,11 +69,11 @@ func (m SMTPMailer) SendVerificationCode(ctx context.Context, recipient, code st
 	message := strings.Join([]string{
 		"From: " + from.String(),
 		"To: " + to.String(),
-		"Subject: VELOHAM - код подтверждения",
+		"Subject: " + subject,
 		"MIME-Version: 1.0",
 		"Content-Type: text/plain; charset=UTF-8",
 		"",
-		"Ваш код подтверждения VELOHAM: " + code,
+		intro + code,
 		"Код действует 10 минут. Никому его не сообщайте.",
 	}, "\r\n")
 	if _, err := io.WriteString(writer, message); err != nil {

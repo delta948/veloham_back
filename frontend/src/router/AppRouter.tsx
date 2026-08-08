@@ -6,6 +6,7 @@ import { ListingPage } from '../pages/ListingPage';
 import { ListingFormPage } from '../pages/ListingFormPage';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { ProfilePage } from '../pages/ProfilePage';
 import { FavoritesPage } from '../pages/FavoritesPage';
 import { ChatsPage } from '../pages/ChatsPage';
@@ -54,6 +55,7 @@ export function AppRouter() {
         <Route path="/edit/:id" element={<Protected><ListingFormPage /></Protected>} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/payment" element={<Protected><PaymentPage /></Protected>} />
         <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
         <Route path="/profile/:id" element={<SellerProfilePage />} />

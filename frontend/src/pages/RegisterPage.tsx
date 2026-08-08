@@ -74,7 +74,7 @@ export function RegisterPage() {
   if (verification) {
     return (
       <form onSubmit={verify} className="panel mx-auto max-w-md space-y-4 p-4 sm:p-6">
-        <h1 className="break-words text-2xl font-black uppercase sm:text-4xl">Подтвердите номер</h1>
+        <h1 className="break-words text-2xl font-black uppercase sm:text-4xl">Подтвердите email</h1>
         <p className="text-white/65">Код отправлен на почту <b className="text-white">{verification.email}</b>. Код действует 10 минут.</p>
         {error && <div className="bg-danger p-3 font-bold" role="alert">{error}</div>}
         <input className="field text-center text-2xl tracking-[.3em]" required autoFocus inputMode="numeric" autoComplete="one-time-code" minLength={4} maxLength={12} placeholder="Код из письма" value={code} onChange={(e) => setCode(e.target.value)} />

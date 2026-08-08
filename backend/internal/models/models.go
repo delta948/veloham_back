@@ -38,6 +38,27 @@ type PendingRegistration struct {
 	ResendAfter   time.Time `json:"resend_after"`
 }
 
+type PasswordReset struct {
+	ID          string    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	UserID      string    `gorm:"type:uuid;index" json:"-"`
+	CodeHash    string    `json:"-"`
+	Attempts    int       `json:"-"`
+	CreatedAt   time.Time `json:"created_at"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	ResendAfter time.Time `json:"resend_after"`
+}
+
+type UserBlockEvent struct {
+	ID        string    `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	UserID    string    `gorm:"type:uuid;index" json:"user_id"`
+	AdminID   string    `gorm:"type:uuid;index" json:"admin_id"`
+	Action    string    `json:"action"`
+	Reason    string    `json:"reason"`
+	CreatedAt time.Time `json:"created_at"`
+	User      User      `json:"user"`
+	Admin     User      `gorm:"foreignKey:AdminID" json:"admin"`
+}
+
 type PrivateUser struct {
 	User
 	Email string `json:"email,omitempty"`

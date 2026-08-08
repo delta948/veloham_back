@@ -51,3 +51,19 @@ type AuthResponse struct {
 type PasswordChangeRequest struct {
 	Password string `json:"password" binding:"required,min=6,max=72"`
 }
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ForgotPasswordResponse struct {
+	ResetID   string `json:"reset_id,omitempty"`
+	ExpiresIn int    `json:"expires_in,omitempty"`
+	DevCode   string `json:"dev_code,omitempty"`
+}
+
+type ResetPasswordRequest struct {
+	ResetID  string `json:"reset_id" binding:"required,uuid"`
+	Code     string `json:"code" binding:"required,len=6"`
+	Password string `json:"password" binding:"required,min=6,max=72"`
+}

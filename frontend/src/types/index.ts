@@ -66,6 +66,9 @@ export type PriceHistory = {
 export type Notification = { id: string; listing_id: string; type: string; message: string; link: string; is_read: boolean; created_at: string };
 
 export type AdminPriceHistory = { id: string; listing_id: string; old_price: number; new_price: number; changed_at: string; changed_by: string; ip_address: string; suspicious: boolean; suspicious_reason?: string; change_count: number; listing: Listing; changed_by_user: User };
+export type UserBlockEvent = { id: string; user_id: string; admin_id: string; action: 'blocked' | 'unblocked'; reason: string; created_at: string; user: User; admin: User };
+export type ListingPlacement = { id: string; user_id: string; listing_id?: string; kind: string; amount: number; currency: string; status: string; provider?: string; provider_payment_id?: string; created_at: string; paid_at?: string };
+export type AdminStats = { users: number; listings: number; reports: number; blocked_users: number; pending_payments: number; paid_payments: number };
 
 export type BuildCard = {
   id?: string;

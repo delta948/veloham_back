@@ -30,8 +30,8 @@ func TestPostgresMigrationsAndAuthorization(t *testing.T) {
 		if err := db.Table("schema_migrations").Count(&count).Error; err != nil {
 			t.Fatal(err)
 		}
-		if count != 17 {
-			t.Fatalf("expected 17 applied migrations, got %d", count)
+		if count != 19 {
+			t.Fatalf("expected 19 applied migrations, got %d", count)
 		}
 	})
 
@@ -191,6 +191,32 @@ func TestPostgresMigrationsAndAuthorization(t *testing.T) {
 		}
 	})
 
+	t.Run("password can be reset with an email code", func(t *testing.T) {
+		response := requestJSON(router, http.MethodPost, "/api/v1/auth/password/forgot", "", `{"email":"integration-owner@veloham.test"}`)
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("expected 202, got %d: %s", response.Code, response.Body.String())
+		}
+		var started struct {
+			ResetID string `json:"reset_id"`
+			DevCode string `json:"dev_code"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
+			t.Fatal(err)
+		}
+		if started.ResetID == "" || started.DevCode == "" {
+			t.Fatalf("unexpected password reset response: %s", response.Body.String())
+		}
+		payload := fmt.Sprintf(`{"reset_id":%q,"code":%q,"password":"new-secret-6"}`, started.ResetID, started.DevCode)
+		response = requestJSON(router, http.MethodPost, "/api/v1/auth/password/reset", "", payload)
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("expected 202, got %d: %s", response.Code, response.Body.String())
+		}
+		response = requestJSON(router, http.MethodPost, "/api/v1/auth/login", "", `{"email":"integration-owner@veloham.test","password":"new-secret-6"}`)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected login after reset, got %d: %s", response.Code, response.Body.String())
+		}
+	})
+
 	t.Run("admin boundary is enforced", func(t *testing.T) {
 		response := request(router, http.MethodGet, "/api/v1/admin/users", ownerToken)
 		if response.Code != http.StatusForbidden {
@@ -214,6 +240,10 @@ func TestPostgresMigrationsAndAuthorization(t *testing.T) {
 		response = request(router, http.MethodGet, "/api/v1/favorites", otherToken)
 		if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), "Нарушение правил площадки") {
 			t.Fatalf("expected block reason for active session, got %d: %s", response.Code, response.Body.String())
+		}
+		response = request(router, http.MethodGet, "/api/v1/admin/block-events", adminToken)
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Нарушение правил площадки") {
+			t.Fatalf("expected block audit event, got %d: %s", response.Code, response.Body.String())
 		}
 	})
 }

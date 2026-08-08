@@ -105,6 +105,48 @@ func (h Handler) Status(c *gin.Context) {
 	c.JSON(http.StatusOK, placement)
 }
 
+func (h Handler) AdminList(c *gin.Context) {
+	var placements []models.ListingPlacement
+	query := h.db.Order("created_at desc").Limit(200)
+	if status := strings.TrimSpace(c.Query("status")); status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Find(&placements).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load payments"})
+		return
+	}
+	c.JSON(http.StatusOK, placements)
+}
+
+func (h Handler) AdminRecheck(c *gin.Context) {
+	var placement models.ListingPlacement
+	if err := h.db.First(&placement, "id = ?", c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "payment not found"})
+		return
+	}
+	if placement.Status == "paid" {
+		c.JSON(http.StatusOK, placement)
+		return
+	}
+	if placement.ProviderPaymentID == "" {
+		c.JSON(http.StatusConflict, gin.H{"error": "provider payment has not been created"})
+		return
+	}
+	paid, err := h.client.Status(c.Request.Context(), placement.ProviderPaymentID)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "payment provider is unavailable"})
+		return
+	}
+	if paid {
+		if err := h.markPaid(placement.ID, placement.ProviderPaymentID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to activate payment"})
+			return
+		}
+		h.db.First(&placement, "id = ?", placement.ID)
+	}
+	c.JSON(http.StatusOK, placement)
+}
+
 func (h Handler) Result(c *gin.Context) {
 	contentType := c.GetHeader("Content-Type")
 	var parseErr error

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { AdminPriceHistory, Listing, Report, User } from '../types';
+import type { AdminPriceHistory, AdminStats, Listing, ListingPlacement, Report, User, UserBlockEvent } from '../types';
 
 export function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -9,12 +9,19 @@ export function AdminPage() {
   const [priceHistory, setPriceHistory] = useState<AdminPriceHistory[]>([]);
   const [blockReasons, setBlockReasons] = useState<Record<string, string>>({});
   const [userActionError, setUserActionError] = useState('');
+  const [search, setSearch] = useState('');
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [blockEvents, setBlockEvents] = useState<UserBlockEvent[]>([]);
+  const [payments, setPayments] = useState<ListingPlacement[]>([]);
 
   const load = () => {
-    api.get<User[]>('/admin/users').then(({ data }) => setUsers(data)).catch(() => setUsers([]));
+    api.get<User[]>('/admin/users', { params: search.trim() ? { q: search.trim() } : undefined }).then(({ data }) => setUsers(data)).catch(() => setUsers([]));
     api.get<Listing[]>('/admin/listings').then(({ data }) => setListings(data)).catch(() => setListings([]));
     api.get<Report[]>('/admin/reports').then(({ data }) => setReports(data)).catch(() => setReports([]));
     api.get<AdminPriceHistory[]>('/admin/price-history').then(({ data }) => setPriceHistory(data)).catch(() => setPriceHistory([]));
+    api.get<AdminStats>('/admin/stats').then(({ data }) => setStats(data)).catch(() => setStats(null));
+    api.get<UserBlockEvent[]>('/admin/block-events').then(({ data }) => setBlockEvents(data)).catch(() => setBlockEvents([]));
+    api.get<ListingPlacement[]>('/admin/payments').then(({ data }) => setPayments(data)).catch(() => setPayments([]));
   };
 
   useEffect(() => { load(); }, []);
@@ -39,12 +46,13 @@ export function AdminPage() {
     <div className="space-y-6 sm:space-y-8">
       <h1 className="break-words text-3xl font-black uppercase sm:text-5xl">Админ-панель</h1>
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="panel p-5"><div className="text-4xl font-black text-acid">{users.length}</div><div className="uppercase text-white/60">Пользователи</div></div>
-        <div className="panel p-5"><div className="text-4xl font-black text-acid">{listings.length}</div><div className="uppercase text-white/60">Объявления</div></div>
-        <div className="panel p-5"><div className="text-4xl font-black text-danger">{reports.length}</div><div className="uppercase text-white/60">Жалобы</div></div>
+        <div className="panel p-5"><div className="text-4xl font-black text-acid">{stats?.users ?? users.length}</div><div className="uppercase text-white/60">Пользователи · блок {stats?.blocked_users ?? 0}</div></div>
+        <div className="panel p-5"><div className="text-4xl font-black text-acid">{stats?.listings ?? listings.length}</div><div className="uppercase text-white/60">Объявления</div></div>
+        <div className="panel p-5"><div className="text-4xl font-black text-danger">{stats?.reports ?? reports.length}</div><div className="uppercase text-white/60">Жалобы · платежи {stats?.paid_payments ?? 0}</div></div>
       </section>
       <section className="panel p-4 sm:p-5">
         <h2 className="mb-4 text-2xl font-black uppercase sm:text-3xl">Пользователи</h2>
+        <form className="mb-4 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); load(); }}><input className="field" placeholder="Имя, email или телефон" value={search} onChange={(event) => setSearch(event.target.value)} /><button className="btn sm:w-auto">Найти</button></form>
         {userActionError && <div className="mb-3 bg-danger p-3 font-bold">{userActionError}</div>}
         {users.map((user) => (
           <div key={user.id} className="grid gap-3 border-t border-white/10 py-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,1fr)_auto] md:items-center">
@@ -53,6 +61,16 @@ export function AdminPage() {
             <button className="btn-dark w-full px-3 py-2 md:w-auto" onClick={() => void toggleBlock(user)}>{user.is_blocked ? 'Разблокировать' : 'Заблокировать'}</button>
           </div>
         ))}
+      </section>
+      <section className="panel p-4 sm:p-5">
+        <h2 className="mb-4 text-2xl font-black uppercase sm:text-3xl">Платежи</h2>
+        {payments.length === 0 && <p className="text-white/55">Платежей пока нет.</p>}
+        {payments.map((payment) => <div key={payment.id} className="flex flex-col gap-3 border-t border-white/10 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 break-all text-sm"><b className="text-acid">{payment.amount} {payment.currency}</b> · {payment.status}<br/><span className="text-white/45">{payment.provider_payment_id || payment.id}</span></div>{payment.status !== 'paid' && payment.provider_payment_id && <button className="btn-dark w-full sm:w-auto" onClick={async () => { await api.post(`/admin/payments/${payment.id}/recheck`); load(); }}>Проверить оплату</button>}</div>)}
+      </section>
+      <section className="panel p-4 sm:p-5">
+        <h2 className="mb-4 text-2xl font-black uppercase sm:text-3xl">Журнал блокировок</h2>
+        {blockEvents.length === 0 && <p className="text-white/55">Действий пока нет.</p>}
+        {blockEvents.map((event) => <div key={event.id} className="border-t border-white/10 py-3 text-sm"><b className={event.action === 'blocked' ? 'text-danger' : 'text-acid'}>{event.action === 'blocked' ? 'Заблокирован' : 'Разблокирован'}</b> · {event.user?.username || event.user_id}<div className="break-words text-white/55">{event.reason || 'без причины'} · администратор {event.admin?.username || event.admin_id} · {new Date(event.created_at).toLocaleString('ru-KG')}</div></div>)}
       </section>
       <section className="panel p-4 sm:p-5">
         <h2 className="mb-4 text-2xl font-black uppercase sm:text-3xl">Объявления</h2>

@@ -11,4 +11,7 @@ func RegisterRoutes(rg *gin.RouterGroup, deps common.Dependencies) {
 	rg.GET("/payments/quota", deps.AuthMW, h.Quota)
 	rg.POST("/payments/:id/checkout", deps.AuthMW, h.Checkout)
 	rg.GET("/payments/:id", deps.AuthMW, h.Status)
+	admin := rg.Group("/admin/payments", deps.AuthMW, deps.AdminMW)
+	admin.GET("", h.AdminList)
+	admin.POST("/:id/recheck", h.AdminRecheck)
 }

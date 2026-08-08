@@ -57,3 +57,5 @@ npm run dev
 - Do not commit `.env` files or production credentials.
 
 Production Compose configuration, migration behavior, backups, upgrades, and rollback are documented in [DEPLOYMENT.md](DEPLOYMENT.md).
+
+Production includes automatic HTTPS through Caddy. A manual protected GitHub deployment workflow performs a backup, fast-forward update, rebuild, and public smoke test.

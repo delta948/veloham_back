@@ -137,3 +137,42 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	}
 	c.JSON(http.StatusAccepted, gin.H{"status": "password changed"})
 }
+
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Введите корректный email")
+		return
+	}
+	res, err := h.service.ForgotPassword(c.Request.Context(), req.Email)
+	if err != nil {
+		if errors.Is(err, errEmailNotConfigured) {
+			response.Error(c, http.StatusServiceUnavailable, "email delivery is not configured")
+			return
+		}
+		response.Error(c, http.StatusBadGateway, "failed to send password reset email")
+		return
+	}
+	c.JSON(http.StatusAccepted, res)
+}
+
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "Проверьте код и новый пароль")
+		return
+	}
+	if err := h.service.ResetPassword(c.Request.Context(), req.ResetID, req.Code, req.Password); err != nil {
+		if errors.Is(err, ErrVerificationLimit) {
+			response.Error(c, http.StatusTooManyRequests, err.Error())
+			return
+		}
+		if errors.Is(err, ErrVerification) {
+			response.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, "password reset failed")
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"status": "password changed"})
+}

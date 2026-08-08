@@ -31,6 +31,7 @@ export function LoginPage() {
       <input className="field" required autoComplete="username" placeholder="Email или логин" value={loginValue} onChange={(e) => setLoginValue(e.target.value)} />
       <input className="field" type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} />
       <button className="btn w-full">Войти</button>
+      <Link className="block text-center text-white/65" to="/forgot-password">Забыли пароль?</Link>
       <Link className="block text-center text-acid" to="/register">Создать аккаунт</Link>
     </form>
   );
