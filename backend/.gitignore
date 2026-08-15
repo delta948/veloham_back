@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+api
+uploads/*
+!uploads/.gitkeep
+coverage.out
+*.test
+.DS_Store

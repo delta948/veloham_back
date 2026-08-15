@@ -19,6 +19,7 @@ type Config struct {
 	UploadDir            string
 	AdminEmail           string
 	AdminPassword        string
+	APIBaseURL           string
 	PublicBaseURL        string
 	FreedomPayMerchantID string
 	FreedomPaySecret     string
@@ -42,6 +43,7 @@ func Load() Config {
 		UploadDir:            value("UPLOAD_DIR", "uploads"),
 		AdminEmail:           strings.TrimSpace(strings.ToLower(os.Getenv("ADMIN_EMAIL"))),
 		AdminPassword:        os.Getenv("ADMIN_PASSWORD"),
+		APIBaseURL:           value("API_BASE_URL", value("PUBLIC_BASE_URL", "http://127.0.0.1:8080")),
 		PublicBaseURL:        value("PUBLIC_BASE_URL", "http://127.0.0.1:5173"),
 		FreedomPayMerchantID: strings.TrimSpace(os.Getenv("FREEDOMPAY_MERCHANT_ID")),
 		FreedomPaySecret:     os.Getenv("FREEDOMPAY_SECRET"),
@@ -71,6 +73,10 @@ func (c Config) Validate() error {
 		publicURL, err := url.Parse(c.PublicBaseURL)
 		if err != nil || publicURL.Scheme != "https" || publicURL.Host == "" {
 			return errors.New("PUBLIC_BASE_URL must be a valid HTTPS URL in production")
+		}
+		apiURL, err := url.Parse(c.APIBaseURL)
+		if err != nil || apiURL.Scheme != "https" || apiURL.Host == "" {
+			return errors.New("API_BASE_URL must be a valid HTTPS URL in production")
 		}
 		if c.FreedomPayMerchantID == "" || c.FreedomPaySecret == "" {
 			return errors.New("FREEDOMPAY_MERCHANT_ID and FREEDOMPAY_SECRET are required in production")

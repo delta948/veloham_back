@@ -77,8 +77,9 @@ func (h Handler) Checkout(c *gin.Context) {
 	if strings.HasSuffix(contactEmail, "@phone.veloham.local") {
 		contactEmail = ""
 	}
-	base := strings.TrimRight(h.cfg.PublicBaseURL, "/")
-	paymentID, checkoutURL, err := h.client.Init(c.Request.Context(), placement.ID, placement.UserID, contactEmail, base+"/api/v1/payments/freedompay/result", base+"/payment?order="+placement.ID)
+	apiBase := strings.TrimRight(h.cfg.APIBaseURL, "/")
+	frontendBase := strings.TrimRight(h.cfg.PublicBaseURL, "/")
+	paymentID, checkoutURL, err := h.client.Init(c.Request.Context(), placement.ID, placement.UserID, contactEmail, apiBase+"/api/v1/payments/freedompay/result", frontendBase+"/payment?order="+placement.ID)
 	if err != nil {
 		h.db.Model(&placement).Update("provider", "freedompay")
 		log.Printf("initialize FreedomPay payment: %v", err)
