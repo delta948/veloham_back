@@ -1,7 +1,7 @@
 .env
 .env.*
 !.env.example
-api
+/api
 uploads/*
 !uploads/.gitkeep
 coverage.out

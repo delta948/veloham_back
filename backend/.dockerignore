@@ -1,5 +1,5 @@
 .cache
-api
+/api
 uploads/*
 !uploads/.gitkeep
 .env
